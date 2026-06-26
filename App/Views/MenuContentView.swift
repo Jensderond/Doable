@@ -9,10 +9,24 @@ struct MenuContentView: View {
 
     @State private var newTitle = ""
     @FocusState private var inputFocused: Bool
+    @State private var screen: Screen = .list
+    private enum Screen { case list, archive }
 
     private var sortedItems: [TodoItem] { Ordering.activeSorted(rawItems) }
 
     var body: some View {
+        Group {
+            switch screen {
+            case .list:
+                listScreen
+            case .archive:
+                ArchiveView(onBack: { screen = .list })
+            }
+        }
+        .onDisappear { store.commitPendingDone(in: context) }
+    }
+
+    private var listScreen: some View {
         VStack(spacing: 0) {
             TextField("Add a todo…", text: $newTitle)
                 .textFieldStyle(.plain)
@@ -38,10 +52,20 @@ struct MenuContentView: View {
                 }
                 .frame(maxHeight: 320)
             }
+
+            Divider()
+
+            HStack {
+                Button { screen = .archive } label: {
+                    Label("Completed", systemImage: "archivebox")
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+            .padding(10)
         }
         .frame(width: 320)
         .onAppear { inputFocused = true }
-        .onDisappear { store.commitPendingDone(in: context) }
     }
 
     private func addItem() {
