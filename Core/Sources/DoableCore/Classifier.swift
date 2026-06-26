@@ -15,7 +15,7 @@ public enum Classifier {
         return isWithinWindow(dueDate: dueDate, now: now, window: window, calendar: calendar) ? .dueSoon : .normal
     }
 
-    static func isWithinWindow(dueDate: Date, now: Date, window: DueSoonWindow, calendar: Calendar) -> Bool {
+    private static func isWithinWindow(dueDate: Date, now: Date, window: DueSoonWindow, calendar: Calendar) -> Bool {
         switch window {
         case .todayOnly:
             return calendar.isDate(dueDate, inSameDayAs: now)
