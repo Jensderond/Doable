@@ -32,10 +32,7 @@ struct MenuContentView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(sortedItems) { item in
-                            Text(item.title)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            TodoRowView(store: store, item: item)
                         }
                     }
                 }
@@ -44,6 +41,7 @@ struct MenuContentView: View {
         }
         .frame(width: 320)
         .onAppear { inputFocused = true }
+        .onDisappear { store.commitPendingDone(in: context) }
     }
 
     private func addItem() {
