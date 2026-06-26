@@ -22,5 +22,9 @@ struct DoableApp: App {
         }
         .menuBarExtraStyle(.window)
         .modelContainer(container)
+
+        Settings {
+            SettingsView()
+        }
     }
 }
