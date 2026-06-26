@@ -10,7 +10,7 @@ struct MenuContentView: View {
     @State private var newTitle = ""
     @FocusState private var inputFocused: Bool
     @State private var screen: Screen = .list
-    private enum Screen { case list, archive }
+    private enum Screen { case list, archive, settings }
 
     private var sortedItems: [TodoItem] { Ordering.activeSorted(rawItems) }
 
@@ -21,6 +21,8 @@ struct MenuContentView: View {
                 listScreen
             case .archive:
                 ArchiveView(onBack: { screen = .list })
+            case .settings:
+                SettingsView(onBack: { screen = .list })
             }
         }
         .onDisappear { store.commitPendingDone(in: context) }
@@ -61,6 +63,10 @@ struct MenuContentView: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
+                Button { screen = .settings } label: {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.plain)
             }
             .padding(10)
         }
