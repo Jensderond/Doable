@@ -41,12 +41,17 @@ final class TodoStore {
         guard !pendingDone.isEmpty else { return }
         let ids = pendingDone
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.isDone == false })
-        if let items = try? context.fetch(descriptor) {
-            let now = Date()
-            for item in items where ids.contains(item.id) {
-                item.isDone = true
-                item.completedAt = now
-            }
+        let items: [TodoItem]
+        do {
+            items = try context.fetch(descriptor)
+        } catch {
+            print("commitPendingDone fetch failed, keeping pending items: \(error)")
+            return
+        }
+        let now = Date()
+        for item in items where ids.contains(item.id) {
+            item.isDone = true
+            item.completedAt = now
         }
         pendingDone.removeAll()
         save(context)
