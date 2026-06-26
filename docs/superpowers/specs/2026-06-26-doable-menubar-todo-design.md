@@ -63,6 +63,16 @@ Per-item state, worst-case:
 - **Due-soon** — deadline within the due-soon window. **Orange** accent.
 - **Normal** — has a future deadline beyond the window, or no deadline. Default styling.
 
+### Stale undated items
+To stop undated items from being forgotten, an item with **no deadline** that was created more
+than the **stale threshold** ago (default **3 workdays**, weekends skipped; configurable in
+settings) shows a subtle **"stale"** label/badge in the row.
+- Giving the item a deadline removes it from staleness (it's no longer undated).
+- A **Postpone** action on the stale label snoozes it for another threshold's worth of workdays,
+  after which the stale label reappears if the item is still undated.
+- Stale styling is informational only — it does **not** affect the menubar icon color/count
+  (that is reserved for due-soon/overdue dated items).
+
 ### Menubar icon
 - **Normal:** monochrome template SF Symbol (e.g. `checklist`), no count.
 - **Due-soon present (none overdue):** icon tints **orange** and shows a **count**.
@@ -76,6 +86,7 @@ Per-item state, worst-case:
 A small settings area (within the popover or a dedicated screen) with:
 - **Launch at login** toggle (`SMAppService`).
 - **Due-soon window** picker (Today only / 1 hour / 24 hours / 3 days).
+- **Stale threshold** for undated items (in workdays, default 3).
 
 ## Data Model
 
@@ -86,6 +97,8 @@ A small settings area (within the popover or a dedicated screen) with:
 - `dueDate: Date?` — optional deadline.
 - `isDone: Bool` — `false` = active, `true` = archived.
 - `completedAt: Date?` — set when committed to archive.
+- `staleSnoozeUntil: Date?` — when set, the stale label is suppressed until this date (set by
+  the Postpone action). Cleared/irrelevant once the item has a `dueDate`.
 
 Active = `isDone == false`. Archive = `isDone == true`.
 
@@ -100,7 +113,8 @@ Implementation may model this as an in-memory pending set in the store rather th
 - **`MenuBarLabel`** — renders the icon: symbol + color + count based on aggregate state.
 - **`MenuContentView`** — popover root: input field, active list, navigation to archive and
   settings. Tracks popover open/close to commit pending-done items.
-- **`TodoRowView`** — one row: completion circle, title, hover clock, due styling, inline undo.
+- **`TodoRowView`** — one row: completion circle, title, hover clock, due styling, inline undo,
+  and the stale label + Postpone action for undated items past the threshold.
 - **`DeadlineEditor`** — date/time picker popover for setting/clearing a deadline.
 - **`ArchiveView`** — separate screen listing completed items, with back button.
 - **`SettingsView`** — launch-at-login toggle + due-soon window picker.
@@ -109,6 +123,9 @@ Implementation may model this as an in-memory pending set in the store rather th
 - **`LoginItemManager`** — wraps `SMAppService` register/unregister + status.
 - **`DueSoonWindow`** — enum/value for the configurable window + the date math for classifying
   items into normal / due-soon / overdue.
+- **`StaleRule`** — workday math: given an undated item's `createdAt`, `staleSnoozeUntil`, and the
+  configurable threshold, decide whether the stale label shows, and compute the next snooze date
+  (advancing by N workdays, skipping weekends).
 
 ## Error Handling
 
@@ -122,6 +139,8 @@ Implementation may model this as an in-memory pending set in the store rather th
   day boundaries) — pure, unit-testable.
 - Ordering logic (deadline asc, undated last, newest-first tiebreak) — unit-testable.
 - Aggregate menubar state (color + count) from a set of items — unit-testable.
+- `StaleRule` workday math (threshold elapsed, weekend skipping, snooze/postpone advancing) —
+  pure, unit-testable.
 - Completion/undo/commit-on-close transitions in `TodoStore` — unit-testable with in-memory store.
 
 ## Out of Scope (v1 / YAGNI)
