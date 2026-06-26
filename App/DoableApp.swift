@@ -1,13 +1,26 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct DoableApp: App {
+    @State private var store = TodoStore()
+    private let container: ModelContainer
+
+    init() {
+        do {
+            container = try ModelContainer(for: TodoItem.self)
+        } catch {
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
+    }
+
     var body: some Scene {
         MenuBarExtra {
-            MenuContentView()
+            MenuContentView(store: store)
         } label: {
             MenuBarLabel()
         }
         .menuBarExtraStyle(.window)
+        .modelContainer(container)
     }
 }
