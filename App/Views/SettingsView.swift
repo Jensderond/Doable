@@ -5,6 +5,7 @@ import DoableCore
 struct SettingsView: View {
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
+    @AppStorage("dateEditorPlacement") private var placementRaw = DateEditorPlacement.overlay.rawValue
     @State private var launchAtLogin = LoginItemManager.isEnabled
 
     var body: some View {
@@ -20,10 +21,16 @@ struct SettingsView: View {
                 }
             }
 
+            Picker("Date editor", selection: $placementRaw) {
+                ForEach(DateEditorPlacement.allCases, id: \.rawValue) { p in
+                    Text(p.displayName).tag(p.rawValue)
+                }
+            }
+
             Stepper("Stale after \(staleThreshold) workday\(staleThreshold == 1 ? "" : "s")",
                     value: $staleThreshold, in: 1...30)
         }
         .formStyle(.grouped)
-        .frame(width: 380, height: 200)
+        .frame(width: 380, height: 240)
     }
 }
