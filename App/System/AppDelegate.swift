@@ -6,6 +6,11 @@ import AppKit
 /// directly. Instead we install a local event monitor for right mouse-downs: when one lands on
 /// the status-bar button, we pop up a small menu there and swallow the event. Left-clicks are
 /// never touched, so `MenuBarExtra` still opens its window as before.
+///
+/// A right-click on the status item reaches our local monitor with `event.window` set to the
+/// private `NSStatusBarWindow` hosting the button. The button sits a couple of levels deep in
+/// that window's view tree (`NSStatusBarContentView` › `NSView` › `NSStatusBarButton`), so we
+/// search the tree recursively to find it.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var rightClickMonitor: Any?
 
@@ -25,7 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Returns `nil` to consume the event when it's a right-click on our status item (we showed
     /// the menu), or the original event to let everything else propagate normally.
     private func handleRightMouseDown(_ event: NSEvent) -> NSEvent? {
-        guard let button = statusBarButton(in: event.window) else { return event }
+        guard let contentView = event.window?.contentView,
+              let button = firstStatusBarButton(in: contentView) else { return event }
+
         let menu = NSMenu()
         let quit = NSMenuItem(title: "Quit Doable",
                               action: #selector(NSApplication.terminate(_:)),
@@ -38,10 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
 
-    /// The status-bar button hosting our menu bar icon, if `window` is its status-bar window.
-    private func statusBarButton(in window: NSWindow?) -> NSStatusBarButton? {
-        guard let contentView = window?.contentView else { return nil }
-        if let button = contentView as? NSStatusBarButton { return button }
-        return contentView.subviews.compactMap { $0 as? NSStatusBarButton }.first
+    /// Depth-first search for the `NSStatusBarButton` hosting our menu bar icon.
+    private func firstStatusBarButton(in view: NSView) -> NSStatusBarButton? {
+        if let button = view as? NSStatusBarButton { return button }
+        for subview in view.subviews {
+            if let button = firstStatusBarButton(in: subview) { return button }
+        }
+        return nil
     }
 }
