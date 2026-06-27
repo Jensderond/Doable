@@ -3,6 +3,7 @@ import SwiftData
 
 @main
 struct DoableApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store = TodoStore()
     private let container: ModelContainer
 
