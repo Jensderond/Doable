@@ -111,6 +111,9 @@ struct TodoRowView: View {
     }
 
     private func toggleDone() {
-        if isPendingDone { store.undo(item) } else { store.markDone(item) }
+        if isPendingDone { store.undo(item) } else {
+            store.markDone(item)
+            if editingItemID == item.id { editingItemID = nil }
+        }
     }
 }

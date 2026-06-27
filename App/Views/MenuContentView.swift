@@ -34,6 +34,7 @@ struct MenuContentView: View {
             }
         }
         .onDisappear { store.commitPendingDone(in: context) }
+        .onChange(of: screen) { _, _ in editingItemID = nil }
     }
 
     private var listScreen: some View {
