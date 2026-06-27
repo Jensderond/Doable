@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 import DoableCore
 
 struct MenuBarLabel: View {
@@ -25,19 +26,40 @@ struct MenuBarLabel: View {
     private func content(for state: MenuBarState) -> some View {
         switch state.severity {
         case .normal:
+            // Template image so it adapts to the menu bar's light/dark appearance.
             Image(systemName: "checklist")
         case .dueSoon:
-            label(count: state.count, tint: .orange)
+            coloredLabel(count: state.count, tint: .orange)
         case .overdue:
-            label(count: state.count, tint: .red)
+            coloredLabel(count: state.count, tint: .red)
         }
     }
 
-    private func label(count: Int, tint: Color) -> some View {
-        HStack(spacing: 2) {
+    /// macOS renders a `MenuBarExtra` label's SF Symbols/text as a template image and tints it
+    /// to match the menu bar, which strips `foregroundStyle`. To keep the warning color we
+    /// rasterize the tinted view into a *non-template* `NSImage` — the system leaves its colors
+    /// alone. Falls back to the plain styled view if rendering fails.
+    @ViewBuilder
+    private func coloredLabel(count: Int, tint: Color) -> some View {
+        let label = HStack(spacing: 2) {
             Image(systemName: "checklist")
             Text("\(count)")
         }
+        .font(.system(size: 13, weight: .semibold))
         .foregroundStyle(tint)
+
+        if let image = render(label) {
+            Image(nsImage: image)
+        } else {
+            label
+        }
+    }
+
+    private func render(_ view: some View) -> NSImage? {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        guard let image = renderer.nsImage else { return nil }
+        image.isTemplate = false
+        return image
     }
 }

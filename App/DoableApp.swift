@@ -20,6 +20,7 @@ struct DoableApp: App {
             MenuContentView(store: store)
         } label: {
             MenuBarLabel()
+                .modelContainer(container)
         }
         .menuBarExtraStyle(.window)
         .modelContainer(container)
