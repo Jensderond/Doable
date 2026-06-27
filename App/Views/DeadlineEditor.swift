@@ -3,7 +3,7 @@ import SwiftData
 import DoableCore
 
 /// In-window editor for a todo's due date: quick presets plus a custom picker.
-/// Rendered by `MenuContentView` (overlay) or `TodoRowView` (inline) — never in a popover.
+/// Rendered inline beneath the edited row by `TodoRowView`.
 struct DeadlineEditor: View {
     @Bindable var store: TodoStore
     let item: TodoItem
@@ -27,7 +27,7 @@ struct DeadlineEditor: View {
                 .font(.headline)
 
             LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(DuePreset.allCases, id: \.rawValue) { preset in
+                ForEach(DuePreset.available(on: Date(), calendar: .current), id: \.rawValue) { preset in
                     Button(preset.displayName) { apply(preset) }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)

@@ -5,7 +5,6 @@ import DoableCore
 struct SettingsView: View {
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
-    @AppStorage("dateEditorPlacement") private var placementRaw = DateEditorPlacement.overlay.rawValue
     @State private var launchAtLogin = LoginItemManager.isEnabled
 
     var body: some View {
@@ -18,12 +17,6 @@ struct SettingsView: View {
             Picker("Due soon", selection: $windowRaw) {
                 ForEach(DueSoonWindow.allCases, id: \.rawValue) { window in
                     Text(window.displayName).tag(window.rawValue)
-                }
-            }
-
-            Picker("Date editor", selection: $placementRaw) {
-                ForEach(DateEditorPlacement.allCases, id: \.rawValue) { p in
-                    Text(p.displayName).tag(p.rawValue)
                 }
             }
 

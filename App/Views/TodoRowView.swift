@@ -9,13 +9,11 @@ struct TodoRowView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
-    @AppStorage("dateEditorPlacement") private var placementRaw = DateEditorPlacement.overlay.rawValue
 
     @State private var hovering = false
 
     private var isPendingDone: Bool { store.pendingDone.contains(item.id) }
     private var window: DueSoonWindow { DueSoonWindow(rawValue: windowRaw) ?? .todayOnly }
-    private var placement: DateEditorPlacement { DateEditorPlacement(rawValue: placementRaw) ?? .overlay }
     private var isEditing: Bool { editingItemID == item.id }
 
     private var isStale: Bool {
@@ -40,7 +38,7 @@ struct TodoRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             rowContent
-            if placement == .inline && isEditing {
+            if isEditing {
                 DeadlineEditor(store: store, item: item, onDismiss: { editingItemID = nil })
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)

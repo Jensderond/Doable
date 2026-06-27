@@ -15,10 +15,8 @@ struct MenuContentView: View {
     private enum Screen { case list, archive }
 
     @State private var editingItemID: UUID?
-    @AppStorage("dateEditorPlacement") private var placementRaw = DateEditorPlacement.overlay.rawValue
 
     private var sortedItems: [TodoItem] { Ordering.activeSorted(rawItems) }
-    private var placement: DateEditorPlacement { DateEditorPlacement(rawValue: placementRaw) ?? .overlay }
 
     /// Measured height of the list's content, used to size the popover to its content up to a cap.
     @State private var listContentHeight: CGFloat = 0
@@ -30,10 +28,14 @@ struct MenuContentView: View {
             case .list:
                 listScreen
             case .archive:
-                ArchiveView(onBack: { screen = .list })
+                ArchiveView(store: store, onBack: { screen = .list })
             }
         }
-        .onDisappear { store.commitPendingDone(in: context) }
+        .onDisappear {
+            store.commitPendingDone(in: context)
+            editingItemID = nil
+            screen = .list
+        }
         .onChange(of: screen) { _, _ in editingItemID = nil }
     }
 
@@ -97,20 +99,6 @@ struct MenuContentView: View {
         }
         .frame(width: 320)
         .onAppear { inputFocused = true }
-        .overlay {
-            if placement == .overlay, let id = editingItemID,
-               let item = sortedItems.first(where: { $0.id == id }) {
-                ZStack {
-                    Color.black.opacity(0.25)
-                        .ignoresSafeArea()
-                        .onTapGesture { editingItemID = nil }
-                    DeadlineEditor(store: store, item: item, onDismiss: { editingItemID = nil })
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                        .shadow(radius: 8)
-                        .padding(24)
-                }
-            }
-        }
     }
 
     private func addItem() {

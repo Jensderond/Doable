@@ -2,7 +2,9 @@ import SwiftUI
 import SwiftData
 
 struct ArchiveView: View {
+    var store: TodoStore
     var onBack: () -> Void
+    @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<TodoItem> { $0.isDone == true },
            sort: \TodoItem.completedAt, order: .reverse) private var items: [TodoItem]
 
@@ -34,8 +36,12 @@ struct ArchiveView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(items) { item in
                             HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.secondary)
+                                Button { store.restore(item, in: context) } label: {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Mark as not done")
                                 Text(item.title)
                                     .foregroundStyle(.secondary)
                                 Spacer()

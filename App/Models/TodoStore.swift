@@ -25,6 +25,13 @@ final class TodoStore {
         pendingDone.remove(item.id)
     }
 
+    /// Brings an already-committed completed item back to the active list.
+    func restore(_ item: TodoItem, in context: ModelContext) {
+        item.isDone = false
+        item.completedAt = nil
+        save(context)
+    }
+
     func setDueDate(_ date: Date?, for item: TodoItem, in context: ModelContext) {
         item.dueDate = date
         if date != nil { item.staleSnoozeUntil = nil }
