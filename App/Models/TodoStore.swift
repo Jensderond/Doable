@@ -30,6 +30,13 @@ final class TodoStore {
         pendingDone.remove(item.id)
     }
 
+    /// Permanently removes an item from the store.
+    func delete(_ item: TodoItem, in context: ModelContext) {
+        pendingDone.remove(item.id)
+        context.delete(item)
+        save(context)
+    }
+
     /// Brings an already-committed completed item back to the active list.
     func restore(_ item: TodoItem, in context: ModelContext) {
         item.isDone = false

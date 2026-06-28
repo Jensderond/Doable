@@ -101,6 +101,14 @@ struct TodoRowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
+        .contextMenu {
+            Button(role: .destructive) {
+                if editingItemID == item.id { editingItemID = nil }
+                store.delete(item, in: context)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     private var titleColor: Color {
