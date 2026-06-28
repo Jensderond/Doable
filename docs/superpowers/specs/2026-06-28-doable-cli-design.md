@@ -59,11 +59,18 @@ always current.
 
 - The CLI is non-sandboxed and runs as the same user, so it can read files under
   `~/Library/Containers/...` (no TCC protection applies there).
-- Read-only access (`allowsSave: false`) means the CLI never mutates the store and
-  never conflicts with the app's writes (SQLite WAL permits a concurrent reader).
+- `allowsSave: false` is an **app-level** guard: the CLI never calls `save()`, so it
+  never mutates data. Core Data still opens the SQLite file read-write at the OS
+  layer and may touch the `-wal`/`-shm` sidecars — which is fine and in fact
+  required to read a WAL store; the dir is user-writable. The reader and the app's
+  writes don't conflict (WAL permits a concurrent reader). Open on a background
+  context and never mutate.
 - The store path is **explicit** in the CLI (derived from the bundle id), because a
   non-sandboxed process's default SwiftData location differs from the app's
   container path.
+- If the store file does **not** exist yet (fresh install, app never wrote),
+  `list` must print the empty-list message and exit 0 — not crash or create an
+  empty store.
 
 ## Shared model (the one refactor)
 
@@ -114,28 +121,43 @@ shells over them.
 A `main` that:
 
 1. Parses `CommandLine.arguments` (dropping arg 0) via `CLICommand.parse`.
-2. `.new(title)` → `NSWorkspace.shared.open(DoableURL.makeNew(title:))`; print a
-   one-line confirmation. Exit 0.
-3. `.list` → `DoableStore.makeReadOnlyContainer()`, fetch
-   `TodoItem` where `isDone == false` (ordered the same way the app orders them via
-   `Ordering` in `DoableCore`), map to `[TodoRow]`, print `formatList(...)`.
-   Exit 0.
+2. `.new(title)` → `NSWorkspace.shared.open(DoableURL.makeNew(title:))`. **Check the
+   result**: if the open fails (no app registered for the `doable` scheme — app
+   never launched, or only present in DerivedData), print a real error to stderr and
+   exit non-zero. On success print a one-line confirmation, exit 0. (Fallback if
+   `NSWorkspace.open` proves flaky from a plain CLI: shell `/usr/bin/open <url>` via
+   `Process`.)
+3. `.list` → if the store file is absent, print the empty message and exit 0;
+   otherwise `DoableStore.makeReadOnlyContainer()`, fetch `TodoItem` where
+   `isDone == false` (ordered the same way the app orders them via `Ordering` in
+   `DoableCore`), map to `[TodoRow]`, print `formatList(...)`. Exit 0.
 4. `.help` → print usage. `.invalid(reason)` → print reason + usage to stderr,
    exit 1.
 
 The executable links `DoableCore`, `SwiftData`, and `AppKit` (for `NSWorkspace`).
-It is **non-sandboxed** (no entitlements of its own).
+It is **non-sandboxed** and must be signed with **no entitlements at all** — see
+Build wiring. A side effect of `new` when the app isn't running: it launches the
+resident menu-bar app, which then stays running. Acceptable for this utility.
 
 ## App changes
 
 - **URL scheme registration**: add `CFBundleURLTypes` to
   `App/Resources/Info.plist` declaring the `doable` scheme (a URL name like
   `nl.redkiwi.Doable.url` and `CFBundleURLSchemes = ["doable"]`).
-- **URL handling**: attach `.onOpenURL { url in ... }` to a scene in
-  `DoableApp.swift`. On a `.new(title)` parsed via `DoableURL.parse`, insert a
-  `TodoItem` into the shared container's `mainContext` and save. Insertion reuses
-  the same trimming/empty-guard logic as `TodoStore.create` (factor a shared
-  helper or call into `TodoStore`). The `@Query`-backed menu reflects it live.
+- **URL handling via `AppDelegate`, not `.onOpenURL`**: for a SwiftUI app with only
+  `MenuBarExtra` + `Settings` scenes (no `WindowGroup`), `.onOpenURL` delivery is
+  unreliable and can drop the event on cold launch (when the app is launched *by*
+  the open call). Handle it in the existing `AppDelegate` via
+  `application(_ app:open urls:[URL])`. For each URL, `DoableURL.parse` → on
+  `.new(title)` insert a `TodoItem` and save, reusing `TodoStore`'s
+  trimming/empty-guard logic. The `@Query`-backed menu reflects it live.
+- **Shared `ModelContainer` ownership (required by the above)**: the container is
+  currently a `private let` inside `DoableApp`, so the `AppDelegate` can't reach it.
+  Introduce a single shared container both can use — created once in a shared holder
+  (e.g. a `DoableContainer` type / static in `DoableCore` or app-level singleton) and
+  consumed by both the SwiftUI scenes (`.modelContainer(...)`) and the `AppDelegate`
+  (inserting via `container.mainContext`). This is a real structural change, not
+  free; the plan must sequence it before URL handling.
 
 ## Settings install
 
@@ -143,16 +165,21 @@ Add a "Command-line tool" section to `SettingsView`:
 
 - **Install button** — `installCLI()`:
   1. Resolve the bundled binary: `Bundle.main.bundleURL` +
-     `Contents/Helpers/doable`.
-  2. Ensure `~/.local/bin` exists (create if missing).
-  3. Create/replace symlink `~/.local/bin/doable` → bundled binary. Because the
-     symlink targets the bundle inside `/Applications`, new builds are picked up
+     `Contents/MacOS/doable`.
+  2. **Resolve the REAL home** — `NSHomeDirectory()` / `~` / `homeDirectoryForCurrentUser`
+     all return the sandbox **container** path for a sandboxed app, not the user's
+     real home. Build the real home from `getpwuid(getuid()).pointee.pw_dir` and use
+     `<realHome>/.local/bin`. (The temporary-exception entitlement grants the real
+     home subpath; writing to the container path would never land on `PATH`.)
+  3. Ensure `<realHome>/.local/bin` exists (create if missing).
+  4. Create/replace symlink `<realHome>/.local/bin/doable` → bundled binary. Because
+     the symlink targets the bundle inside `/Applications`, new builds are picked up
      automatically.
   4. On success, reflect "Installed" state.
   5. If the direct write is blocked by the sandbox, fall back to an
      `NSOpenPanel` (powerbox) grant of the destination directory, then retry.
-- **PATH guidance** — after install, check whether `~/.local/bin` is on `PATH`
-  (inspect the `PATH` env / common shell profiles). If not, show
+- **PATH guidance** — after install, check whether `<realHome>/.local/bin` is on
+  `PATH` (inspect the `PATH` env / common shell profiles). If not, show
   `export PATH="$HOME/.local/bin:$PATH"` with a **Copy** button and a one-line
   instruction to add it to `~/.zshrc`.
 - **State**: show installed vs. not-installed (does the symlink exist and point at
@@ -164,37 +191,49 @@ Add a "Command-line tool" section to `SettingsView`:
 ```xml
 <key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
 <array>
-  <string>.local/bin/</string>
+  <string>/.local/bin/</string>
 </array>
 ```
 
-This grants the sandboxed app write access to `~/.local/bin/` for the one-click
-path, with the picker as a fallback if the entitlement is not honored under
-ad-hoc signing.
+Note the **leading slash** — Apple's `home-relative-path` format requires every
+entry to start with `/` (the path is relative to the user's real home). This grants
+the sandboxed app write access to `~/.local/bin/` for the one-click path, with the
+`NSOpenPanel` picker as a fallback if the entitlement is not honored under ad-hoc
+signing. **Whether this entitlement is honored under `codesign -s -` is the first
+thing to validate in implementation** — it gates the chosen one-click install UX
+(see Risks).
 
 ## Build wiring
 
-1. **New tool target** `doable` in `project.yml`: a macOS command-line tool,
-   depends on the `DoableCore` package, links `AppKit`/`SwiftData`.
+1. **New tool target** `doable` in `project.yml`: `type: tool`, platform macOS,
+   depends on the `DoableCore` package, links `AppKit`/`SwiftData`. (XcodeGen
+   supports `type: tool`, inline `postBuildScripts`, and `copyFiles` with
+   `destination`/`subpath` + dependency `embed` — all confirmed.)
 2. **Embed in the app**: a Copy Files build phase on the `Doable` target copies the
-   `doable` product into `Contents/Helpers/`. Express this in `project.yml`
-   (XcodeGen `dependencies` with `embed`/`copyFiles`, or an explicit `copyFiles`
-   phase) so it survives regeneration.
+   `doable` product into **`Contents/MacOS/`** (XcodeGen `copyFiles`
+   `destination: executables`). `Contents/MacOS` is the code-signing-blessed
+   location for nested executables — more robust than an arbitrary `Contents/Helpers`
+   dir, and the symlink target becomes `.../Contents/MacOS/doable`. Express this in
+   `project.yml` so it survives regeneration.
 3. **Migrate the "Copy to /Applications" phase into `project.yml`** as a
    `postBuildScripts` entry (currently it exists only in the pbxproj). Preserve the
-   existing behavior and **extend the re-signing** to sign
-   `Contents/Helpers/doable` (inside-out: nested executable before the outer bundle
-   is sealed) so the bundled CLI is valid and launchable.
-4. Regenerate `Doable.xcodeproj` from `project.yml`; confirm both phases are
-   present and the build still installs a launchable, signed app + signed nested
-   CLI into `/Applications`.
+   existing behavior and **extend the re-signing inside-out**: sign nested `*.dylib`s
+   (existing), then **sign `Contents/MacOS/doable` with `codesign --force --sign -`
+   and NO `--entitlements` flag** (it must NOT inherit the app sandbox — a sandboxed
+   CLI has no container and cannot read `~/Library/Containers/...` or drive
+   LaunchServices, breaking both commands), then sign the outer bundle with the
+   app's entitlements. Order matters: nested code before the bundle is sealed.
+4. Regenerate `Doable.xcodeproj` from `project.yml`; confirm all phases are present
+   and the build installs a launchable, signed app plus a correctly **non-sandboxed**,
+   signed nested CLI into `/Applications`.
 
 ## Testing & verification
 
 - **Unit (DoableCore, TDD)**: `CLICommand.parse` cases; `DoableURL` round-trip;
   `formatList` empty/with-due/without-due.
 - **Integration (manual)**:
-  - Build → confirm `Doable.app/Contents/Helpers/doable` exists and is signed.
+  - Build → confirm `Doable.app/Contents/MacOS/doable` exists, is signed, and is
+    **not** sandboxed (`codesign -d --entitlements - <binary>` shows no app-sandbox).
   - Install from Settings → `~/.local/bin/doable` symlink resolves to the bundle.
   - `doable new "buy milk"` → item appears live in the open menu; persists.
   - `doable list` → shows active items including the new one; with app quit too.
@@ -210,12 +249,16 @@ ad-hoc signing.
 
 ## Risks / open items
 
-- **Ad-hoc signing + temporary-exception entitlement**: should be honored since the
-  re-sign applies the entitlements file, but verify; the `NSOpenPanel` fallback
-  covers the case where it isn't.
+- **[Validate first] Ad-hoc signing + temporary-exception entitlement**: no
+  authoritative confirmation that
+  `com.apple.security.temporary-exception.files.home-relative-path.read-write` is
+  honored under `codesign -s -`. It gates the one-click install UX, so verify it
+  early; the `NSOpenPanel` fallback covers the case where it isn't.
 - **Read-only open of a live store**: verify a concurrent reader against the app's
-  WAL store works without creating/locking issues; read-only config should avoid
-  checkpoint writes.
+  WAL store works. Note `allowsSave: false` is app-level only — Core Data still opens
+  the file read-write at the OS layer and touches `-wal`/`-shm` (expected and needed
+  for WAL reads); the dir is user-writable so this is fine.
 - **URL scheme registration timing**: LaunchServices must know the
   `/Applications/Doable.app` handler; confirmed by the build installing there and
-  the user having launched it at least once.
+  the user having launched it at least once. `new` must surface a clear error (not a
+  silent success) if no handler is registered.
