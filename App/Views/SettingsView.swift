@@ -19,7 +19,7 @@ struct SettingsView: View {
     private var binDir: URL { realHome.appendingPathComponent(".local/bin") }
     private var linkURL: URL { binDir.appendingPathComponent("doable") }
     private var bundledTool: URL {
-        Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/doable")
+        Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/doable")
     }
 
     private func installCLI() {
