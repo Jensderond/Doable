@@ -1,5 +1,4 @@
 import Foundation
-import AppKit
 import SwiftData
 import DoableCore
 
@@ -28,7 +27,18 @@ case .invalid(let reason):
 
 case .new(let title):
     let url = DoableURL.makeNew(title: title)
-    guard NSWorkspace.shared.open(url) else {
+    // Open the URL in the background (`-g`) so Doable handles it without stealing
+    // focus from the terminal. NSWorkspace.open would activate the app frontmost.
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    task.arguments = ["-g", url.absoluteString]
+    do {
+        try task.run()
+    } catch {
+        fail("could not launch /usr/bin/open: \(error.localizedDescription)")
+    }
+    task.waitUntilExit()
+    guard task.terminationStatus == 0 else {
         fail("could not reach Doable. Is the app installed in /Applications and launched at least once?")
     }
     print("Added: \(title)")
