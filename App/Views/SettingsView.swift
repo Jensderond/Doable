@@ -1,74 +1,69 @@
 import SwiftUI
-import AppKit
-import DoableCore
 
-/// Content of the native Settings window (opened via the standard `Settings` scene).
+/// Sidebar-based Settings window. General and Developer sit at the top of the
+/// sidebar; About is pinned to the bottom.
 struct SettingsView: View {
-    @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
-    @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
-    @State private var launchAtLogin = LoginItemManager.isEnabled
-    @State private var installMessage: String?
-
-    private var realHome: URL {
-        guard let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir else {
-            return FileManager.default.homeDirectoryForCurrentUser
+    private enum Section: String, CaseIterable, Identifiable {
+        case general, developer, about
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .general: return "General"
+            case .developer: return "Developer"
+            case .about: return "About"
+            }
         }
-        return URL(fileURLWithPath: String(cString: dir))
-    }
-
-    private var binDir: URL { realHome.appendingPathComponent(".local/bin") }
-    private var linkURL: URL { binDir.appendingPathComponent("doable") }
-    private var bundledTool: URL {
-        Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/doable")
-    }
-
-    private func installCLI() {
-        let fm = FileManager.default
-        do {
-            try fm.createDirectory(at: binDir, withIntermediateDirectories: true)
-            if fm.fileExists(atPath: linkURL.path) || (try? linkURL.checkResourceIsReachable()) == true {
-                try? fm.removeItem(at: linkURL)
+        var systemImage: String {
+            switch self {
+            case .general: return "gearshape"
+            case .developer: return "hammer"
+            case .about: return "info.circle"
             }
-            try fm.createSymbolicLink(at: linkURL, withDestinationURL: bundledTool)
-            let path = ProcessInfo.processInfo.environment["PATH"] ?? ""
-            if PathCheck.isOnPath(dir: binDir.path, path: path) {
-                installMessage = "Installed: doable is ready to use."
-            } else {
-                installMessage = "Installed to \(linkURL.path).\nAdd to ~/.zshrc:\nexport PATH=\"$HOME/.local/bin:$PATH\""
-            }
-        } catch {
-            installMessage = "Could not install automatically (\(error.localizedDescription)). "
-                + "Run in Terminal:\nln -sf \"\(bundledTool.path)\" \"\(linkURL.path)\""
         }
     }
+
+    @State private var selection: Section = .general
 
     var body: some View {
-        Form {
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, newValue in
-                    launchAtLogin = LoginItemManager.setEnabled(newValue)
-                }
-
-            Picker("Due soon", selection: $windowRaw) {
-                ForEach(DueSoonWindow.allCases, id: \.rawValue) { window in
-                    Text(window.displayName).tag(window.rawValue)
-                }
+        NavigationSplitView {
+            VStack(alignment: .leading, spacing: 2) {
+                sidebarRow(.general)
+                sidebarRow(.developer)
+                Spacer()
+                sidebarRow(.about)
             }
-
-            Stepper("Stale after \(staleThreshold) workday\(staleThreshold == 1 ? "" : "s")",
-                    value: $staleThreshold, in: 1...30)
-
-            Section("Command-line tool") {
-                Button("Install \u{201C}doable\u{201D} command") { installCLI() }
-                if let installMessage {
-                    Text(installMessage)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                }
-            }
+            .padding(8)
+            .navigationSplitViewColumnWidth(min: 170, ideal: 180, max: 220)
+        } detail: {
+            detail
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle(selection.label)
         }
-        .formStyle(.grouped)
-        .frame(width: 380, height: 320)
+        .frame(minWidth: 620, idealWidth: 640, minHeight: 400, idealHeight: 420)
+    }
+
+    @ViewBuilder private var detail: some View {
+        switch selection {
+        case .general: GeneralSettingsView()
+        case .developer: DeveloperSettingsView()
+        case .about: AboutSettingsView()
+        }
+    }
+
+    private func sidebarRow(_ section: Section) -> some View {
+        Button {
+            selection = section
+        } label: {
+            Label(section.label, systemImage: section.systemImage)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 8)
+        .background(
+            selection == section ? Color.accentColor.opacity(0.15) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 6)
+        )
     }
 }
