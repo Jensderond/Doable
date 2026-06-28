@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 import DoableCore
 
 /// "Developer" settings pane: install the `doable` command-line tool onto PATH.
