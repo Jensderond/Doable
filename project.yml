@@ -27,3 +27,17 @@ targets:
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: YES
         SWIFT_VERSION: "5.0"
+  doable:
+    type: tool
+    platform: macOS
+    sources:
+      - CLI
+    dependencies:
+      - package: DoableCore
+        product: DoableCore
+    settings:
+      base:
+        PRODUCT_NAME: doable
+        PRODUCT_BUNDLE_IDENTIFIER: nl.redkiwi.doable
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
