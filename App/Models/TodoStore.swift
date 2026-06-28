@@ -11,10 +11,15 @@ final class TodoStore {
     var pendingDone: Set<UUID> = []
 
     func create(title: String, in context: ModelContext) {
+        TodoStore.insert(title: title, into: context)
+    }
+
+    /// Trims, guards against empty, inserts a new active todo, and saves.
+    static func insert(title: String, into context: ModelContext) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         context.insert(TodoItem(title: trimmed, createdAt: Date()))
-        save(context)
+        do { try context.save() } catch { print("SwiftData save failed: \(error)") }
     }
 
     func markDone(_ item: TodoItem) {

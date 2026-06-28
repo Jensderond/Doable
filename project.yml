@@ -15,6 +15,33 @@ targets:
     dependencies:
       - package: DoableCore
         product: DoableCore
+      - target: DoableCLI
+    postBuildScripts:
+      - name: "Copy to /Applications"
+        script: |
+          # Install the built app into /Applications on every build. This phase runs
+          # before Xcode's final code-signing step, so the copy is unsigned; we ad-hoc
+          # re-sign it (matching CODE_SIGN_IDENTITY "-") so the sandboxed app launches
+          # and shares the same data container. The nested CLI is signed WITHOUT
+          # entitlements so it is NOT sandboxed (it must read the container store and
+          # drive LaunchServices).
+          DEST="/Applications/${FULL_PRODUCT_NAME}"
+          SRC="${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}"
+          if [ ! -d "$SRC" ]; then
+            echo "warning: $SRC not found; skipping install to /Applications"
+            exit 0
+          fi
+          rm -rf "$DEST"
+          cp -R "$SRC" "$DEST"
+          # Embed the CLI tool into Contents/Helpers (not Contents/MacOS to avoid a
+          # case-insensitive filename collision between "Doable" and "doable" on APFS)
+          mkdir -p "$DEST/Contents/Helpers"
+          cp "${BUILT_PRODUCTS_DIR}/doable" "$DEST/Contents/Helpers/doable"
+          chmod +x "$DEST/Contents/Helpers/doable"
+          find "$DEST/Contents/MacOS" -name '*.dylib' -exec codesign --force --sign - --timestamp=none {} +
+          codesign --force --sign - --timestamp=none "$DEST/Contents/Helpers/doable"
+          codesign --force --sign - --timestamp=none --entitlements "${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}" "$DEST"
+          echo "Installed signed ${FULL_PRODUCT_NAME} to /Applications"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.redkiwi.Doable
@@ -26,4 +53,18 @@ targets:
         CODE_SIGN_ENTITLEMENTS: App/Doable.entitlements
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "5.0"
+  DoableCLI:
+    type: tool
+    platform: macOS
+    sources:
+      - CLI
+    dependencies:
+      - package: DoableCore
+        product: DoableCore
+    settings:
+      base:
+        PRODUCT_NAME: doable
+        PRODUCT_BUNDLE_IDENTIFIER: nl.redkiwi.doable
+        CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.0"
