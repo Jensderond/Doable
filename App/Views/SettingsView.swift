@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// Sidebar-based Settings window. General and Developer sit at the top of the
-/// sidebar; About is pinned to the bottom.
+/// sidebar (a native `List`, for proper selection, padding and title-bar inset);
+/// About is pinned to the bottom.
 struct SettingsView: View {
-    private enum Section: String, CaseIterable, Identifiable {
+    private enum Section: String, CaseIterable, Identifiable, Hashable {
         case general, developer, about
         var id: String { rawValue }
         var label: String {
@@ -22,48 +23,60 @@ struct SettingsView: View {
         }
     }
 
-    @State private var selection: Section = .general
+    @State private var selection: Section? = .general
+
+    /// The effective selection (defaults to General if the list ever deselects).
+    private var current: Section { selection ?? .general }
 
     var body: some View {
         NavigationSplitView {
-            VStack(alignment: .leading, spacing: 2) {
-                sidebarRow(.general)
-                sidebarRow(.developer)
-                Spacer()
-                sidebarRow(.about)
+            List(selection: $selection) {
+                ForEach([Section.general, .developer]) { section in
+                    Label(section.label, systemImage: section.systemImage)
+                        .tag(section)
+                }
             }
-            .padding(8)
-            .navigationSplitViewColumnWidth(min: 170, ideal: 180, max: 220)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 215, max: 260)
+            .toolbar(removing: .sidebarToggle)
+            .safeAreaInset(edge: .bottom, spacing: 0) { aboutRow }
         } detail: {
             detail
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle(selection.label)
+                .navigationTitle(current.label)
         }
-        .frame(minWidth: 620, idealWidth: 640, minHeight: 400, idealHeight: 420)
+        .frame(minWidth: 640, idealWidth: 680, minHeight: 440, idealHeight: 480)
+    }
+
+    /// About row, pinned below the list. Styled to read as a selectable sidebar
+    /// row since it lives outside the `List` (which can't pin an item to the bottom).
+    private var aboutRow: some View {
+        let isSelected = current == .about
+        return VStack(spacing: 0) {
+            Divider()
+            Button {
+                selection = .about
+            } label: {
+                Label(Section.about.label, systemImage: Section.about.systemImage)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
     }
 
     @ViewBuilder private var detail: some View {
-        switch selection {
+        switch current {
         case .general: GeneralSettingsView()
         case .developer: DeveloperSettingsView()
         case .about: AboutSettingsView()
         }
-    }
-
-    private func sidebarRow(_ section: Section) -> some View {
-        Button {
-            selection = section
-        } label: {
-            Label(section.label, systemImage: section.systemImage)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.vertical, 5)
-        .padding(.horizontal, 8)
-        .background(
-            selection == section ? Color.accentColor.opacity(0.15) : Color.clear,
-            in: RoundedRectangle(cornerRadius: 6)
-        )
     }
 }
