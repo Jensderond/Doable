@@ -1,74 +1,82 @@
 import SwiftUI
-import AppKit
-import DoableCore
 
-/// Content of the native Settings window (opened via the standard `Settings` scene).
+/// Sidebar-based Settings window. General and Developer sit at the top of the
+/// sidebar (a native `List`, for proper selection, padding and title-bar inset);
+/// About is pinned to the bottom.
 struct SettingsView: View {
-    @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
-    @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
-    @State private var launchAtLogin = LoginItemManager.isEnabled
-    @State private var installMessage: String?
-
-    private var realHome: URL {
-        guard let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir else {
-            return FileManager.default.homeDirectoryForCurrentUser
+    private enum Section: String, CaseIterable, Identifiable, Hashable {
+        case general, developer, about
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .general: return "General"
+            case .developer: return "Developer"
+            case .about: return "About"
+            }
         }
-        return URL(fileURLWithPath: String(cString: dir))
-    }
-
-    private var binDir: URL { realHome.appendingPathComponent(".local/bin") }
-    private var linkURL: URL { binDir.appendingPathComponent("doable") }
-    private var bundledTool: URL {
-        Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/doable")
-    }
-
-    private func installCLI() {
-        let fm = FileManager.default
-        do {
-            try fm.createDirectory(at: binDir, withIntermediateDirectories: true)
-            if fm.fileExists(atPath: linkURL.path) || (try? linkURL.checkResourceIsReachable()) == true {
-                try? fm.removeItem(at: linkURL)
+        var systemImage: String {
+            switch self {
+            case .general: return "gearshape"
+            case .developer: return "hammer"
+            case .about: return "info.circle"
             }
-            try fm.createSymbolicLink(at: linkURL, withDestinationURL: bundledTool)
-            let path = ProcessInfo.processInfo.environment["PATH"] ?? ""
-            if PathCheck.isOnPath(dir: binDir.path, path: path) {
-                installMessage = "Installed: doable is ready to use."
-            } else {
-                installMessage = "Installed to \(linkURL.path).\nAdd to ~/.zshrc:\nexport PATH=\"$HOME/.local/bin:$PATH\""
-            }
-        } catch {
-            installMessage = "Could not install automatically (\(error.localizedDescription)). "
-                + "Run in Terminal:\nln -sf \"\(bundledTool.path)\" \"\(linkURL.path)\""
         }
     }
+
+    @State private var selection: Section? = .general
+
+    /// The effective selection (defaults to General if the list ever deselects).
+    private var current: Section { selection ?? .general }
 
     var body: some View {
-        Form {
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, newValue in
-                    launchAtLogin = LoginItemManager.setEnabled(newValue)
-                }
-
-            Picker("Due soon", selection: $windowRaw) {
-                ForEach(DueSoonWindow.allCases, id: \.rawValue) { window in
-                    Text(window.displayName).tag(window.rawValue)
+        NavigationSplitView {
+            List(selection: $selection) {
+                ForEach([Section.general, .developer]) { section in
+                    Label(section.label, systemImage: section.systemImage)
+                        .tag(section)
                 }
             }
-
-            Stepper("Stale after \(staleThreshold) workday\(staleThreshold == 1 ? "" : "s")",
-                    value: $staleThreshold, in: 1...30)
-
-            Section("Command-line tool") {
-                Button("Install \u{201C}doable\u{201D} command") { installCLI() }
-                if let installMessage {
-                    Text(installMessage)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                }
-            }
+            .navigationSplitViewColumnWidth(min: 200, ideal: 215, max: 260)
+            .toolbar(removing: .sidebarToggle)
+            .safeAreaInset(edge: .bottom, spacing: 0) { aboutRow }
+        } detail: {
+            detail
+                .navigationTitle(current.label)
         }
-        .formStyle(.grouped)
-        .frame(width: 380, height: 320)
+        .frame(minWidth: 640, idealWidth: 680, minHeight: 440, idealHeight: 480)
+    }
+
+    /// About row, pinned below the list. Styled to read as a selectable sidebar
+    /// row since it lives outside the `List` (which can't pin an item to the bottom).
+    private var aboutRow: some View {
+        let isSelected = current == .about
+        return VStack(spacing: 0) {
+            Divider()
+            Button {
+                selection = .about
+            } label: {
+                Label(Section.about.label, systemImage: Section.about.systemImage)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
+    }
+
+    @ViewBuilder private var detail: some View {
+        switch current {
+        case .general: GeneralSettingsView()
+        case .developer: DeveloperSettingsView()
+        case .about: AboutSettingsView()
+        }
     }
 }

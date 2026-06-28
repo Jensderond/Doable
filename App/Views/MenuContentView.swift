@@ -37,6 +37,16 @@ struct MenuContentView: View {
             screen = .list
         }
         .onChange(of: screen) { _, _ in editingItemID = nil }
+        .background {
+            Button("") {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+        }
     }
 
     private var listScreen: some View {
