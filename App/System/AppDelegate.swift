@@ -1,4 +1,6 @@
 import AppKit
+import DoableCore
+import SwiftData
 
 /// Adds a right-click "Quit" menu to the menu bar icon.
 ///
@@ -17,6 +19,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
             self?.handleRightMouseDown(event) ?? event
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if case .new(title: let title) = DoableURL.parse(url) {
+                Task { @MainActor in
+                    TodoStore.insert(title: title, into: SharedContainer.shared.mainContext)
+                }
+            }
         }
     }
 

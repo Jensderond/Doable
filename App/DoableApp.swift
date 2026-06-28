@@ -5,25 +5,16 @@ import SwiftData
 struct DoableApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store = TodoStore()
-    private let container: ModelContainer
-
-    init() {
-        do {
-            container = try ModelContainer(for: TodoItem.self)
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
-    }
 
     var body: some Scene {
         MenuBarExtra {
             MenuContentView(store: store)
         } label: {
             MenuBarLabel()
-                .modelContainer(container)
+                .modelContainer(SharedContainer.shared)
         }
         .menuBarExtraStyle(.window)
-        .modelContainer(container)
+        .modelContainer(SharedContainer.shared)
 
         Settings {
             SettingsView()
