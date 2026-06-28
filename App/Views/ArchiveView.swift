@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import DoableCore
 
 struct ArchiveView: View {
     var store: TodoStore
@@ -7,6 +8,23 @@ struct ArchiveView: View {
     @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<TodoItem> { $0.isDone == true },
            sort: \TodoItem.completedAt, order: .reverse) private var items: [TodoItem]
+    @State private var filter: CompletedFilter = .thisWeek
+
+    private var filteredItems: [TodoItem] {
+        let range = filter.dateRange(now: Date(), calendar: .current)
+        return items.filter { item in
+            guard let completedAt = item.completedAt else { return false }
+            return range.contains(completedAt)
+        }
+    }
+
+    private var emptyMessage: String {
+        switch filter {
+        case .thisWeek: return "Nothing completed this week"
+        case .lastWeek: return "Nothing completed last week"
+        case .last30Days: return "Nothing completed in the last 30 days"
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,22 +37,28 @@ struct ArchiveView: View {
                 Text("Completed")
                     .font(.headline)
                 Spacer()
-                // Symmetry spacer to keep the title centered.
-                Label("Back", systemImage: "chevron.left").hidden()
+                Picker("Range", selection: $filter) {
+                    ForEach(CompletedFilter.allCases, id: \.self) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
             }
             .padding(10)
 
             Divider()
 
-            if items.isEmpty {
-                Text("Nothing archived yet")
+            if filteredItems.isEmpty {
+                Text(emptyMessage)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(items) { item in
+                        ForEach(filteredItems) { item in
                             HStack(spacing: 8) {
                                 Button { store.restore(item, in: context) } label: {
                                     Image(systemName: "checkmark.circle.fill")
