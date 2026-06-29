@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             if case .new(title: let title) = DoableURL.parse(url) {
                 Task { @MainActor in
-                    TodoStore.insert(title: title, into: SharedContainer.shared.mainContext)
+                    TodoStore.shared.create(title: title, in: SharedContainer.shared.mainContext)
                 }
             }
         }
