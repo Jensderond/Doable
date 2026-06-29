@@ -7,7 +7,7 @@ struct MenuBarLabel: View {
     @Query(filter: #Predicate<TodoItem> { $0.isDone == false }) private var items: [TodoItem]
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("showUrgentInMenuBar") private var showUrgentInMenuBar = false
-    @AppStorage("menuBarScope") private var scopeRaw = MenuBarScope.topTask.rawValue
+    @AppStorage("menuBarScope") private var scopeRaw = MenuBarScope.pinnedOnly.rawValue
 
     /// Recomputed once a minute so the icon reflects items crossing into due-soon/overdue as
     /// time passes, even when no item data changes. A plain timer is used instead of

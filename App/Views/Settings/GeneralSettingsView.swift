@@ -6,7 +6,7 @@ struct GeneralSettingsView: View {
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
     @AppStorage("showUrgentInMenuBar") private var showUrgentInMenuBar = false
-    @AppStorage("menuBarScope") private var scopeRaw = MenuBarScope.topTask.rawValue
+    @AppStorage("menuBarScope") private var scopeRaw = MenuBarScope.pinnedOnly.rawValue
     @State private var launchAtLogin = LoginItemManager.isEnabled
 
     var body: some View {
