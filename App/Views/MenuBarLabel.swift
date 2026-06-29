@@ -48,8 +48,11 @@ struct MenuBarLabel: View {
         let title = MenuBarTitle.format(item.title)
         switch Classifier.itemState(dueDate: item.dueDate, now: now, window: window, calendar: .current) {
         case .normal:
-            // Template so it adapts to the menu bar's light/dark appearance.
+            // Template so it adapts to the menu bar's light/dark appearance. `.titleAndIcon`
+            // is required: a bare `Label` in a `MenuBarExtra` collapses to icon-only, which
+            // would hide the task title entirely.
             Label(title, systemImage: "checklist")
+                .labelStyle(.titleAndIcon)
         case .dueSoon:
             titledLabel(title: title, tint: .orange)
         case .overdue:

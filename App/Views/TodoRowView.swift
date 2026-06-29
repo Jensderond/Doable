@@ -56,6 +56,7 @@ struct TodoRowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
+                    .fontWeight(item.isPinned ? .bold : .regular)
                     .strikethrough(isPendingDone)
                     .foregroundStyle(titleColor)
                 if let due = item.dueDate {
@@ -100,13 +101,32 @@ struct TodoRowView: View {
                         .buttonStyle(.plain)
                         .help(item.isPinned ? "Unpin" : "Pin to top")
                     }
-                    if hovering || item.dueDate != nil {
+                    // The "…" menu is always present, anchoring the right edge so the bookmark's
+                    // position never shifts on hover. It folds in the deadline, pin, and delete
+                    // actions that used to be split between the inline clock and the context menu.
+                    Menu {
                         Button { editingItemID = item.id } label: {
-                            Image(systemName: "clock")
-                                .foregroundStyle(dueColor ?? .secondary)
+                            Label(item.dueDate == nil ? "Set deadline" : "Edit deadline",
+                                  systemImage: "clock")
                         }
-                        .buttonStyle(.plain)
+                        Button { store.togglePin(item, in: context) } label: {
+                            Label(item.isPinned ? "Unpin" : "Pin to top",
+                                  systemImage: item.isPinned ? "bookmark.slash" : "bookmark")
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            if editingItemID == item.id { editingItemID = nil }
+                            store.delete(item, in: context)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundStyle(dueColor ?? .secondary)
                     }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
                 }
             }
         }
