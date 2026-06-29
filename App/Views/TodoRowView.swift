@@ -37,18 +37,7 @@ struct TodoRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if isPendingDone {
-                rowContent
-            } else {
-                rowContent
-                    .draggable(item.id.uuidString) {
-                        // Drag preview: the row's title on a subtle background.
-                        Text(item.title)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
-                    }
-            }
+            rowContent
             if isEditing {
                 DeadlineEditor(store: store, item: item, onDismiss: { editingItemID = nil })
                     .padding(.horizontal, 10)

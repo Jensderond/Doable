@@ -16,10 +16,23 @@ struct MenuContentView: View {
 
     @State private var editingItemID: UUID?
 
-    /// The id of the row currently highlighted as a drop target (for an insertion indicator).
-    @State private var dropTargetID: UUID?
+    /// The item currently being dragged. Its source row renders dimmed (a "ghost") and a floating
+    /// ghost copy follows the cursor. `nil` when no drag is in progress.
+    @State private var draggingItem: TodoItem?
+    /// A working copy of the visible order, reordered live while dragging so rows shuffle to open a
+    /// gap at the prospective drop position. The real order is only persisted on drop.
+    @State private var order: [TodoItem] = []
+    /// Each row's frame in the "list" coordinate space, used to map the cursor's Y to a drop index.
+    @State private var rowFrames: [UUID: CGRect] = [:]
+    /// The cursor's Y position (list space) during a drag, where the floating ghost is drawn.
+    @State private var dragGhostY: CGFloat?
 
     private var sortedItems: [TodoItem] { Ordering.activeSorted(rawItems) }
+
+    /// While dragging, show the live working order; otherwise the authoritative sorted list.
+    private var displayItems: [TodoItem] {
+        draggingItem == nil ? sortedItems : order
+    }
 
     /// Measured height of the list's content, used to size the popover to its content up to a cap.
     @State private var listContentHeight: CGFloat = 0
@@ -38,6 +51,7 @@ struct MenuContentView: View {
             store.commitPendingDone(in: context)
             editingItemID = nil
             screen = .list
+            endDrag() // recover if the popover was dismissed mid-drag
         }
         .onChange(of: screen) { _, _ in editingItemID = nil }
         .background {
@@ -70,36 +84,30 @@ struct MenuContentView: View {
                     .padding(.vertical, 16)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(sortedItems) { item in
-                            TodoRowView(store: store, item: item, editingItemID: $editingItemID)
-                                .overlay(alignment: .top) {
-                                    if dropTargetID == item.id {
-                                        Rectangle()
-                                            .fill(Color.accentColor)
-                                            .frame(height: 2)
-                                    }
-                                }
-                                .dropDestination(for: String.self) { ids, _ in
-                                    handleDrop(ids, onto: item)
-                                } isTargeted: { targeted in
-                                    dropTargetID = targeted ? item.id : (dropTargetID == item.id ? nil : dropTargetID)
-                                }
-                        }
-                        // Trailing zone so an item can be dropped at the very bottom.
-                        Color.clear
-                            .frame(height: 8)
-                            .contentShape(Rectangle())
-                            .dropDestination(for: String.self) { ids, _ in
-                                handleDrop(ids, onto: nil)
+                    ZStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(displayItems) { item in
+                                listRow(item)
                             }
+                        }
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: ListHeightKey.self, value: proxy.size.height)
+                        })
+
+                        // Ghost copy of the dragged row, following the cursor so the drop point is clear.
+                        if let dragging = draggingItem, let y = dragGhostY {
+                            ghostRow(dragging)
+                                .frame(width: 320)
+                                .position(x: 160, y: y)
+                                .allowsHitTesting(false)
+                                .transition(.identity)
+                        }
                     }
-                    .background(GeometryReader { proxy in
-                        Color.clear.preference(key: ListHeightKey.self, value: proxy.size.height)
-                    })
+                    .coordinateSpace(name: "list")
                 }
                 .frame(height: min(listContentHeight, maxListHeight))
                 .onPreferenceChange(ListHeightKey.self) { listContentHeight = $0 }
+                .onPreferenceChange(RowFramesKey.self) { rowFrames = $0 }
                 .scrollIndicators(.visible)
                 .overlay(alignment: .bottom) {
                     if listContentHeight > maxListHeight {
@@ -133,32 +141,107 @@ struct MenuContentView: View {
         .onAppear { inputFocused = true }
     }
 
+    /// One list row, wired for gesture-based reordering. The dragged row dims; pending-done rows
+    /// (showing "Undo") cannot be dragged. Each row reports its frame so the drag can find the
+    /// drop index from the cursor position.
+    @ViewBuilder
+    private func listRow(_ item: TodoItem) -> some View {
+        let row = TodoRowView(store: store, item: item, editingItemID: $editingItemID)
+            .opacity(draggingItem?.id == item.id ? 0.3 : 1)
+            .background(GeometryReader { proxy in
+                Color.clear.preference(key: RowFramesKey.self,
+                                       value: [item.id: proxy.frame(in: .named("list"))])
+            })
+        if store.pendingDone.contains(item.id) {
+            row
+        } else {
+            row.gesture(dragGesture(for: item))
+        }
+    }
+
+    /// A simplified, dimmed copy of a row, drawn at the cursor while dragging.
+    private func ghostRow(_ item: TodoItem) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "circle").foregroundStyle(.secondary)
+            Text(item.title)
+                .fontWeight(item.isPinned ? .bold : .regular)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .opacity(0.9)
+        .shadow(radius: 5)
+    }
+
+    /// Click-drag (>6 pt) reorders; a plain click stays under 6 pt so the row's buttons still tap.
+    /// Works entirely in-view (no OS drag-and-drop), so it commits reliably inside the popover.
+    private func dragGesture(for item: TodoItem) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .named("list"))
+            .onChanged { value in
+                if draggingItem?.id != item.id {
+                    draggingItem = item
+                    order = sortedItems
+                }
+                dragGhostY = value.location.y
+                reorder(toY: value.location.y)
+            }
+            .onEnded { _ in commitDrag() }
+    }
+
+    /// Moves the dragged item within `order` to the row whose midpoint the cursor has passed.
+    private func reorder(toY y: CGFloat) {
+        guard let dragging = draggingItem,
+              let current = order.firstIndex(where: { $0.id == dragging.id }) else { return }
+        let target = targetIndex(forY: y)
+        guard target != current else { return }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            let moved = order.remove(at: current)
+            order.insert(moved, at: target)
+        }
+    }
+
+    /// The index in `order` the cursor is over, by comparing against each row's vertical midpoint.
+    private func targetIndex(forY y: CGFloat) -> Int {
+        for (idx, item) in order.enumerated() {
+            if let frame = rowFrames[item.id], y < frame.midY { return idx }
+        }
+        return max(0, order.count - 1)
+    }
+
     private func addItem() {
         store.create(title: newTitle, in: context)
         newTitle = ""
         inputFocused = true
     }
 
-    /// Translates a dropped item id into a `(from, to)` move. Dropping onto `target` inserts the
-    /// dragged item immediately above `target`; a `nil` target drops it at the bottom. `to` is the
-    /// post-removal insertion index that `TodoStore.move` expects.
-    @discardableResult
-    private func handleDrop(_ ids: [String], onto target: TodoItem?) -> Bool {
-        dropTargetID = nil
-        guard let draggedID = ids.first.flatMap({ UUID(uuidString: $0) }),
-              let from = sortedItems.firstIndex(where: { $0.id == draggedID }),
-              draggedID != target?.id
-        else { return false }
-
-        let reduced = sortedItems.filter { $0.id != draggedID }
-        let to: Int
-        if let target, let idx = reduced.firstIndex(where: { $0.id == target.id }) {
-            to = idx
-        } else {
-            to = reduced.count // dropped on the trailing zone → bottom
-        }
+    /// Persists the live-reordered position of the dragged item. `from` is its index in the
+    /// authoritative pre-drag order; `to` is its index in the working `order` (which equals the
+    /// post-removal insertion index `TodoStore.move` expects, since only this one item moved).
+    /// No-op when the order is unchanged. Clears the drag state regardless.
+    private func commitDrag() {
+        guard let dragging = draggingItem else { return }
+        defer { endDrag() }
+        guard order.map(\.id) != sortedItems.map(\.id),
+              let from = sortedItems.firstIndex(where: { $0.id == dragging.id }),
+              let to = order.firstIndex(where: { $0.id == dragging.id })
+        else { return }
         store.move(from: from, to: to, in: context)
-        return true
+    }
+
+    private func endDrag() {
+        draggingItem = nil
+        dragGhostY = nil
+    }
+}
+
+/// Reports each row's frame (in the "list" coordinate space) so a drag can map cursor Y → index.
+private struct RowFramesKey: PreferenceKey {
+    static let defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 
