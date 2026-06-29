@@ -104,4 +104,14 @@ final class ReorderTests: XCTestCase {
         // No unpinned task anywhere → no boundary to draw.
         XCTAssertNil(Reorder.separatorIndex(pinFlags: [true, true, true], dragging: 0))
     }
+
+    func test_separator_drag_sole_pinned_dragged_boundary_at_top() {
+        // The only pinned item is the one being dragged → boundary at the very top (index 0);
+        // dragging it down past row 0 unpins it, so the barrier must still be shown.
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, false, false], dragging: 0), 0)
+    }
+
+    func test_separator_drag_sole_pinned_two_items() {
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, false], dragging: 0), 0)
+    }
 }

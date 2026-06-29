@@ -40,6 +40,7 @@ struct MenuContentView: View {
         guard let d = draggingItem else { return false }
         guard let s = separatorIndex,
               let idx = displayItems.firstIndex(where: { $0.id == d.id }) else { return d.isPinned }
+        if idx == s { return d.isPinned }   // exact boundary (move's d == p) keeps current state
         return idx < s
     }
 

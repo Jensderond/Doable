@@ -58,18 +58,24 @@ public enum Reorder {
     /// Display index at which to draw the pinned↔unpinned separator, or `nil` for none.
     ///
     /// The boundary mirrors `move`: it sits just after the pinned items among the *other*
-    /// (non-dragged) items. Shown only when there is at least one pinned non-dragged item AND at
-    /// least one unpinned item overall — i.e. only when crossing it can actually flip a pin state.
+    /// (non-dragged) items. Shown whenever both sections are non-empty overall. When the dragged
+    /// item is the sole pinned one there are no pinned others, so the boundary sits at the very
+    /// top (index 0): dragging it down past row 0 unpins it.
     /// During a drag the dragged item is excluded from the boundary count, so its live position
     /// relative to the returned index tells the user whether it will become pinned (above) or
     /// unpinned (below). The returned value is an insertion index in `0...pinFlags.count`.
     public static func separatorIndex(pinFlags: [Bool], dragging: Int?) -> Int? {
-        let others = pinFlags.indices.filter { $0 != dragging }
-        let pinnedOthers = others.filter { pinFlags[$0] }.count
-        let unpinnedTotal = pinFlags.filter { !$0 }.count
-        guard pinnedOthers >= 1, unpinnedTotal >= 1 else { return nil }
+        let totalPinned = pinFlags.filter { $0 }.count
+        let totalUnpinned = pinFlags.count - totalPinned
+        // A boundary exists only when both sections are non-empty overall.
+        guard totalPinned >= 1, totalUnpinned >= 1 else { return nil }
 
-        // Walk the visible rows; place the separator right after the p-th non-dragged item.
+        // Boundary sits after the pinned items among the *other* (non-dragged) items, mirroring
+        // `move`. When the dragged item is the sole pinned one, there are no pinned others, so the
+        // boundary is at the very top (index 0): dragging it down past row 0 unpins it.
+        let pinnedOthers = pinFlags.indices.filter { $0 != dragging && pinFlags[$0] }.count
+        if pinnedOthers == 0 { return 0 }
+
         var seen = 0
         for i in pinFlags.indices where i != dragging {
             seen += 1
