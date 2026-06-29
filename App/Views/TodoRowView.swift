@@ -94,7 +94,7 @@ struct TodoRowView: View {
                     // items reveal the pin button on hover.
                     if item.isPinned || hovering {
                         Button { store.togglePin(item, in: context) } label: {
-                            Image(systemName: item.isPinned ? "pin.fill" : "pin")
+                            Image(systemName: item.isPinned ? "bookmark.fill" : "bookmark")
                                 .foregroundStyle(item.isPinned ? Color.accentColor : Color.secondary)
                         }
                         .buttonStyle(.plain)
@@ -120,7 +120,7 @@ struct TodoRowView: View {
                 store.togglePin(item, in: context)
             } label: {
                 Label(item.isPinned ? "Unpin" : "Pin to top",
-                      systemImage: item.isPinned ? "pin.slash" : "pin")
+                      systemImage: item.isPinned ? "bookmark.slash" : "bookmark")
             }
             Button(role: .destructive) {
                 if editingItemID == item.id { editingItemID = nil }
