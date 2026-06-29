@@ -60,4 +60,58 @@ final class ReorderTests: XCTestCase {
         let order = Reorder.placeAtTopOfSection(pinFlags: [true, false, false], moving: 2)
         XCTAssertEqual(order, [0, 2, 1]) // new item (index 2) sits just below the pinned item
     }
+
+    // MARK: separatorIndex — at rest
+
+    func test_separator_rest_mixed_sits_before_first_unpinned() {
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, true, false, false], dragging: nil), 2)
+    }
+
+    func test_separator_rest_single_each() {
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, false], dragging: nil), 1)
+    }
+
+    func test_separator_rest_all_pinned_is_nil() {
+        XCTAssertNil(Reorder.separatorIndex(pinFlags: [true, true], dragging: nil))
+    }
+
+    func test_separator_rest_all_unpinned_is_nil() {
+        XCTAssertNil(Reorder.separatorIndex(pinFlags: [false, false], dragging: nil))
+    }
+
+    // MARK: separatorIndex — during a drag (boundary excludes the dragged item)
+
+    func test_separator_drag_unpinned_dragged_to_top_lands_below_pinned_others() {
+        // order = [draggedUnpinned, pinned, pinned, unpinned]; boundary after the 2 pinned others.
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [false, true, true, false], dragging: 0), 3)
+    }
+
+    func test_separator_drag_pinned_dragged_down_into_unpinned() {
+        // order = [pinnedOther, unpinned, draggedPinned, unpinned]; one pinned other → boundary after it.
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, false, true, false], dragging: 2), 1)
+    }
+
+    func test_separator_drag_all_others_pinned_dragged_unpinned_shows_at_end() {
+        // order = [draggedUnpinned, pinned, pinned]; both pinned others above → separator after them.
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [false, true, true], dragging: 0), 3)
+    }
+
+    func test_separator_drag_no_pinned_others_is_nil() {
+        XCTAssertNil(Reorder.separatorIndex(pinFlags: [false, false, false], dragging: 1))
+    }
+
+    func test_separator_drag_all_pinned_is_nil() {
+        // No unpinned task anywhere → no boundary to draw.
+        XCTAssertNil(Reorder.separatorIndex(pinFlags: [true, true, true], dragging: 0))
+    }
+
+    func test_separator_drag_sole_pinned_dragged_boundary_at_top() {
+        // The only pinned item is the one being dragged → boundary at the very top (index 0);
+        // dragging it down past row 0 unpins it, so the barrier must still be shown.
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, false, false], dragging: 0), 0)
+    }
+
+    func test_separator_drag_sole_pinned_two_items() {
+        XCTAssertEqual(Reorder.separatorIndex(pinFlags: [true, false], dragging: 0), 0)
+    }
 }

@@ -43,10 +43,16 @@ the *other* (non-dragged) items. So the boundary is defined excluding the dragge
   unpinned item in `others`).
 - The dragged ghost's live index in `order` then falls **above** the separator (→ would become
   bookmarked) or **below** it (→ would become normal). This matches `Reorder.move` exactly:
-  `d < p → pinned`, `d > p → unpinned`, `d == p → keep`.
+  `d < p → pinned`, `d > p → unpinned`, `d == p → keep`. At the exact boundary (`d == p`) `move`
+  *keeps* the current state, so the ghost preview must also show the dragged item's current state
+  there rather than flipping — a strict above/below test would mislead at that one position.
 
-Show the separator during a drag only when `others` contains at least one pinned item (otherwise no
-flip is possible and there is no boundary to draw).
+Show the separator during a drag whenever there is **at least one pinned and one unpinned task
+overall** (counting the dragged item). Note the subtle case: when the dragged item is the *sole*
+pinned task there are no pinned *others*, yet a flip is still possible — dragging it down unpins it —
+so the boundary sits at the very top (index 0) and the barrier must be shown. (An earlier draft of
+this spec wrongly claimed no flip was possible with no pinned others; that omission was a Critical
+bug caught in final review.)
 
 #### Prospective-state preview (part of this design)
 
@@ -81,10 +87,14 @@ logic is unchanged; we only visualize the boundary it already uses.
 
 ## Edge cases
 
-- **No bookmarks:** no separator, at rest or during drag. Dragging cannot pin (matches `Reorder`).
+- **No bookmarks:** no separator, at rest or during drag. With zero pinned tasks, dragging cannot
+  pin (matches `Reorder`).
 - **All bookmarked:** no unpinned section → no separator. (Dragging to the bottom keeps state per
   `Reorder`; out of scope to change.)
 - **Single pinned + single unpinned:** separator shows between them at rest.
+- **Sole bookmarked task being dragged:** the separator shows at the top (index 0); dragging the
+  task below row 0 unpins it, and the ghost preview reflects that as it crosses. Verified by
+  exhaustive simulation that the ghost preview always agrees with the committed pin state.
 - **Pending-done rows:** unchanged; they can't be dragged and don't affect the boundary beyond their
   normal pin flag.
 - **Popover dismissed mid-drag:** `endDrag()` already resets drag state; separator returns to its
