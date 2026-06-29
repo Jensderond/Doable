@@ -16,6 +16,9 @@ struct MenuContentView: View {
 
     @State private var editingItemID: UUID?
 
+    /// The id of the row currently highlighted as a drop target (for an insertion indicator).
+    @State private var dropTargetID: UUID?
+
     private var sortedItems: [TodoItem] { Ordering.activeSorted(rawItems) }
 
     /// Measured height of the list's content, used to size the popover to its content up to a cap.
@@ -70,7 +73,26 @@ struct MenuContentView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(sortedItems) { item in
                             TodoRowView(store: store, item: item, editingItemID: $editingItemID)
+                                .overlay(alignment: .top) {
+                                    if dropTargetID == item.id {
+                                        Rectangle()
+                                            .fill(Color.accentColor)
+                                            .frame(height: 2)
+                                    }
+                                }
+                                .dropDestination(for: String.self) { ids, _ in
+                                    handleDrop(ids, onto: item)
+                                } isTargeted: { targeted in
+                                    dropTargetID = targeted ? item.id : (dropTargetID == item.id ? nil : dropTargetID)
+                                }
                         }
+                        // Trailing zone so an item can be dropped at the very bottom.
+                        Color.clear
+                            .frame(height: 8)
+                            .contentShape(Rectangle())
+                            .dropDestination(for: String.self) { ids, _ in
+                                handleDrop(ids, onto: nil)
+                            }
                     }
                     .background(GeometryReader { proxy in
                         Color.clear.preference(key: ListHeightKey.self, value: proxy.size.height)
@@ -115,6 +137,28 @@ struct MenuContentView: View {
         store.create(title: newTitle, in: context)
         newTitle = ""
         inputFocused = true
+    }
+
+    /// Translates a dropped item id into a `(from, to)` move. Dropping onto `target` inserts the
+    /// dragged item immediately above `target`; a `nil` target drops it at the bottom. `to` is the
+    /// post-removal insertion index that `TodoStore.move` expects.
+    @discardableResult
+    private func handleDrop(_ ids: [String], onto target: TodoItem?) -> Bool {
+        dropTargetID = nil
+        guard let draggedID = ids.first.flatMap({ UUID(uuidString: $0) }),
+              let from = sortedItems.firstIndex(where: { $0.id == draggedID }),
+              draggedID != target?.id
+        else { return false }
+
+        let reduced = sortedItems.filter { $0.id != draggedID }
+        let to: Int
+        if let target, let idx = reduced.firstIndex(where: { $0.id == target.id }) {
+            to = idx
+        } else {
+            to = reduced.count // dropped on the trailing zone → bottom
+        }
+        store.move(from: from, to: to, in: context)
+        return true
     }
 }
 
