@@ -1,5 +1,3 @@
-import Foundation
-
 /// Pure index math for the manually-ordered active list. Operates on a list of pin flags
 /// in current visual order (pinned-first) and returns the new ordering as indices into the
 /// input, so the SwiftData layer can apply `sortIndex`/`isPinned` without any ordering logic.
