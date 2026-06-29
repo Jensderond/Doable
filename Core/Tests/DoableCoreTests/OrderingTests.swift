@@ -5,6 +5,7 @@ private struct Stub: Orderable, Equatable {
     let name: String
     let dueDate: Date?
     let createdAt: Date
+    var isPinned: Bool = false
 }
 
 final class OrderingTests: XCTestCase {
@@ -37,5 +38,28 @@ final class OrderingTests: XCTestCase {
         let newer = Stub(name: "newer", dueDate: due, createdAt: date(2026, 6, 25, 9, 0, calendar: cal))
         let sorted = Ordering.activeSorted([older, newer])
         XCTAssertEqual(sorted.map(\.name), ["newer", "older"])
+    }
+
+    func test_pinned_items_sort_before_unpinned_even_with_later_deadline() {
+        let pinned = Stub(name: "pinned", dueDate: nil, createdAt: date(2026, 6, 1, 9, 0, calendar: cal), isPinned: true)
+        let dated = Stub(name: "dated", dueDate: date(2026, 6, 28, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal))
+        let sorted = Ordering.activeSorted([dated, pinned])
+        XCTAssertEqual(sorted.map(\.name), ["pinned", "dated"])
+    }
+
+    func test_deadline_rules_apply_within_pinned_group() {
+        let late = Stub(name: "late", dueDate: date(2026, 7, 5, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal), isPinned: true)
+        let soon = Stub(name: "soon", dueDate: date(2026, 6, 28, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal), isPinned: true)
+        let unpinned = Stub(name: "unpinned", dueDate: date(2026, 6, 27, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal))
+        let sorted = Ordering.activeSorted([unpinned, late, soon])
+        XCTAssertEqual(sorted.map(\.name), ["soon", "late", "unpinned"])
+    }
+
+    func test_mostUrgent_is_pinned_top_then_soonest_deadline() {
+        let pinned = Stub(name: "pinned", dueDate: nil, createdAt: date(2026, 6, 1, 9, 0, calendar: cal), isPinned: true)
+        let soon = Stub(name: "soon", dueDate: date(2026, 6, 28, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal))
+        XCTAssertEqual(Ordering.mostUrgent([soon, pinned])?.name, "pinned")
+        XCTAssertEqual(Ordering.mostUrgent([soon])?.name, "soon")
+        XCTAssertNil(Ordering.mostUrgent([Stub]()))
     }
 }

@@ -6,6 +6,7 @@ import DoableCore
 struct MenuBarLabel: View {
     @Query(filter: #Predicate<TodoItem> { $0.isDone == false }) private var items: [TodoItem]
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
+    @AppStorage("showUrgentInMenuBar") private var showUrgentInMenuBar = false
 
     /// Recomputed once a minute so the icon reflects items crossing into due-soon/overdue as
     /// time passes, even when no item data changes. A plain timer is used instead of
@@ -18,8 +19,14 @@ struct MenuBarLabel: View {
 
     var body: some View {
         let state = MenuBarStateCalculator.state(items: items, now: now, window: window, calendar: .current)
-        content(for: state)
-            .onReceive(ticker) { now = $0 }
+        Group {
+            if showUrgentInMenuBar, let urgent = Ordering.mostUrgent(items) {
+                urgentContent(for: urgent)
+            } else {
+                content(for: state)
+            }
+        }
+        .onReceive(ticker) { now = $0 }
     }
 
     @ViewBuilder
@@ -32,6 +39,38 @@ struct MenuBarLabel: View {
             coloredLabel(count: state.count, tint: .orange)
         case .overdue:
             coloredLabel(count: state.count, tint: .red)
+        }
+    }
+
+    /// Shows the top task's title next to the icon, tinted by that task's own urgency.
+    @ViewBuilder
+    private func urgentContent(for item: TodoItem) -> some View {
+        let title = MenuBarTitle.format(item.title)
+        switch Classifier.itemState(dueDate: item.dueDate, now: now, window: window, calendar: .current) {
+        case .normal:
+            // Template so it adapts to the menu bar's light/dark appearance.
+            Label(title, systemImage: "checklist")
+        case .dueSoon:
+            titledLabel(title: title, tint: .orange)
+        case .overdue:
+            titledLabel(title: title, tint: .red)
+        }
+    }
+
+    /// Same rasterize-to-keep-color trick as `coloredLabel`, but with a task title instead of a count.
+    @ViewBuilder
+    private func titledLabel(title: String, tint: Color) -> some View {
+        let label = HStack(spacing: 4) {
+            Image(systemName: "checklist")
+            Text(title)
+        }
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(tint)
+
+        if let image = render(label) {
+            Image(nsImage: image)
+        } else {
+            label
         }
     }
 

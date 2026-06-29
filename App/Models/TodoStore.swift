@@ -44,6 +44,12 @@ final class TodoStore {
         save(context)
     }
 
+    /// Pins or unpins an item, moving it to (or away from) the top of the active list.
+    func togglePin(_ item: TodoItem, in context: ModelContext) {
+        item.isPinned.toggle()
+        save(context)
+    }
+
     func setDueDate(_ date: Date?, for item: TodoItem, in context: ModelContext) {
         item.dueDate = date
         if date != nil { item.staleSnoozeUntil = nil }

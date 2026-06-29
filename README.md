@@ -8,10 +8,12 @@ A tiny, native macOS menu bar todo app. Click the menu bar icon, type a task, pr
 - **One-click complete** — click the circle to check a task off. It stays visible (with an **Undo**) while the popover is open, then moves to the archive when you close it.
 - **Optional deadlines** — hover a task and click the clock to set a date and time. Tasks are ordered by deadline (soonest first), with undated tasks below and newest first.
 - **Due-soon & overdue at a glance** — tasks turn **orange** when they're due soon and **red** when overdue. The menu bar icon picks up the same color and shows a **count** of pressing tasks (red wins over orange), so you know without even opening it.
+- **Most urgent task in the menu bar** — optionally show the title of your top task right in the menu bar (tinted by its own urgency) instead of just a count. Turn it on in Settings.
+- **Pin tasks to the top** — pin the tasks that matter most and they stay above everything else in the list (and become what shows in the menu bar). Hover a task and click the **pin**, or right-click it.
 - **Configurable "due soon"** — choose what "soon" means: today only, within 1 hour, within 24 hours, or within 3 days.
 - **Stale reminders** — undated tasks that have been sitting untouched for too long (a configurable number of workdays, weekends excluded) get a **Stale** badge with a one-click **Postpone**.
 - **Completed archive** — a separate screen lists everything you've finished, newest first.
-- **Native Settings window** — toggle **Launch at login**, set the due-soon window, and set the stale threshold.
+- **Native Settings window** — toggle **Launch at login**, show your most urgent task in the menu bar, set the due-soon window, and set the stale threshold.
 
 ## Installing
 
@@ -36,8 +38,9 @@ To keep it around, drag `Doable.app` into your **Applications** folder, and turn
 
 - **Add a task:** click the checklist icon in the menu bar, type, and press **Enter**.
 - **Set a deadline:** hover a task and click the **clock**, then pick a date and time. Clear it any time from the same editor.
+- **Pin a task:** hover a task and click the **pin** (or right-click and choose **Pin to top**) to keep it above the rest. Click it again to unpin.
 - **Complete a task:** click the **circle** on its left. Changed your mind? Click **Undo** before closing the popover.
 - **See finished tasks:** click **Completed** at the bottom of the list.
-- **Open settings:** click the **gear**, then adjust launch-at-login, the due-soon window, and the stale threshold.
+- **Open settings:** click the **gear**, then adjust launch-at-login, whether your most urgent task shows in the menu bar, the due-soon window, and the stale threshold.
 
 The menu bar icon is your ambient cue: plain when nothing's pressing, orange with a count when something's due soon, red with a count when something's overdue.

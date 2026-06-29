@@ -5,6 +5,7 @@ import DoableCore
 struct GeneralSettingsView: View {
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
+    @AppStorage("showUrgentInMenuBar") private var showUrgentInMenuBar = false
     @State private var launchAtLogin = LoginItemManager.isEnabled
 
     var body: some View {
@@ -13,6 +14,8 @@ struct GeneralSettingsView: View {
                 .onChange(of: launchAtLogin) { _, newValue in
                     launchAtLogin = LoginItemManager.setEnabled(newValue)
                 }
+
+            Toggle("Show most urgent task in menu bar", isOn: $showUrgentInMenuBar)
 
             Picker("Due soon", selection: $windowRaw) {
                 ForEach(DueSoonWindow.allCases, id: \.rawValue) { window in

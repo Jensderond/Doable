@@ -88,12 +88,26 @@ struct TodoRowView: View {
                     .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundStyle(Color.accentColor)
-            } else if hovering || item.dueDate != nil {
-                Button { editingItemID = item.id } label: {
-                    Image(systemName: "clock")
-                        .foregroundStyle(dueColor ?? .secondary)
+            } else {
+                HStack(spacing: 10) {
+                    // Pinned items always show the (filled) pin so the state is visible; unpinned
+                    // items reveal the pin button on hover.
+                    if item.isPinned || hovering {
+                        Button { store.togglePin(item, in: context) } label: {
+                            Image(systemName: item.isPinned ? "pin.fill" : "pin")
+                                .foregroundStyle(item.isPinned ? Color.accentColor : Color.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(item.isPinned ? "Unpin" : "Pin to top")
+                    }
+                    if hovering || item.dueDate != nil {
+                        Button { editingItemID = item.id } label: {
+                            Image(systemName: "clock")
+                                .foregroundStyle(dueColor ?? .secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 10)
@@ -102,6 +116,12 @@ struct TodoRowView: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .contextMenu {
+            Button {
+                store.togglePin(item, in: context)
+            } label: {
+                Label(item.isPinned ? "Unpin" : "Pin to top",
+                      systemImage: item.isPinned ? "pin.slash" : "pin")
+            }
             Button(role: .destructive) {
                 if editingItemID == item.id { editingItemID = nil }
                 store.delete(item, in: context)
