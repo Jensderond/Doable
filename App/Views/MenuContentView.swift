@@ -34,6 +34,13 @@ struct MenuContentView: View {
         draggingItem == nil ? sortedItems : order
     }
 
+    /// Insertion index in `displayItems` for the pinned↔normal separator, or `nil` when none.
+    private var separatorIndex: Int? {
+        let flags = displayItems.map(\.isPinned)
+        let dragIdx = draggingItem.flatMap { d in displayItems.firstIndex { $0.id == d.id } }
+        return Reorder.separatorIndex(pinFlags: flags, dragging: dragIdx)
+    }
+
     /// Measured height of the list's content, used to size the popover to its content up to a cap.
     @State private var listContentHeight: CGFloat = 0
     private let maxListHeight: CGFloat = 320
@@ -86,9 +93,11 @@ struct MenuContentView: View {
                 ScrollView {
                     ZStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 0) {
-                            ForEach(displayItems) { item in
+                            ForEach(Array(displayItems.enumerated()), id: \.element.id) { idx, item in
+                                if idx == separatorIndex { bookmarkSeparator }
                                 listRow(item)
                             }
+                            if separatorIndex == displayItems.count { bookmarkSeparator }
                         }
                         .background(GeometryReader { proxy in
                             Color.clear.preference(key: ListHeightKey.self, value: proxy.size.height)
@@ -174,6 +183,18 @@ struct MenuContentView: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
         .opacity(0.9)
         .shadow(radius: 5)
+    }
+
+    /// A thin rule marking the bookmarked↔normal boundary. Subtle at rest; accent-colored and a
+    /// touch heavier while dragging, so crossing it (which flips the pin state) is obvious.
+    private var bookmarkSeparator: some View {
+        let dragging = draggingItem != nil
+        return Rectangle()
+            .fill(dragging ? Color.accentColor.opacity(0.9) : Color.secondary.opacity(0.25))
+            .frame(height: dragging ? 2 : 1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, dragging ? 3 : 2)
+            .allowsHitTesting(false)
     }
 
     /// Click-drag (>6 pt) reorders; a plain click stays under 6 pt so the row's buttons still tap.
