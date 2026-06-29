@@ -133,11 +133,10 @@ A private helper `renumber(_ orderedItems: [TodoItem])` assigns
   "Undo") to avoid reordering items about to be archived.
 
 **`App/Views/TodoRowView.swift`**
-- Add a drag affordance. Options: make the whole row draggable, or show a grip
-  handle (`line.3.horizontal`) on hover next to the existing hover controls.
-  Default: whole-row drag with a subtle grip on hover, so it doesn't collide
-  with the checkbox/bookmark/`…` menu hit targets. Final affordance to be
-  settled in the plan; must not interfere with existing tap targets.
+- **Whole-row drag.** The entire row is the drag handle (`.draggable` on
+  `rowContent`); no separate grip affordance. The drag must not interfere with
+  the existing tap targets (checkbox, bookmark, `…` menu, Postpone) — those
+  remain tappable; a press-and-move on the row body starts the drag.
 
 ### CLI — `CLI/main.swift`
 

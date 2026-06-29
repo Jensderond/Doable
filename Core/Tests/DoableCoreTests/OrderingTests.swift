@@ -62,4 +62,19 @@ final class OrderingTests: XCTestCase {
         XCTAssertEqual(Ordering.mostUrgent([soon])?.name, "soon")
         XCTAssertNil(Ordering.mostUrgent([Stub]()))
     }
+
+    func test_menuBarTask_topTask_surfaces_most_urgent_regardless_of_pin() {
+        let soon = Stub(name: "soon", dueDate: date(2026, 6, 28, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal))
+        XCTAssertEqual(Ordering.menuBarTask([soon], scope: .topTask)?.name, "soon")
+        XCTAssertNil(Ordering.menuBarTask([Stub](), scope: .topTask))
+    }
+
+    func test_menuBarTask_pinnedOnly_surfaces_pinned_else_nil() {
+        let pinned = Stub(name: "pinned", dueDate: nil, createdAt: date(2026, 6, 1, 9, 0, calendar: cal), isPinned: true)
+        let soon = Stub(name: "soon", dueDate: date(2026, 6, 28, 9, 0, calendar: cal), createdAt: date(2026, 6, 1, 9, 0, calendar: cal))
+        // A pinned item sorts to the top, so it is surfaced.
+        XCTAssertEqual(Ordering.menuBarTask([soon, pinned], scope: .pinnedOnly)?.name, "pinned")
+        // Nothing pinned → no task shown (the plain status icon is used instead).
+        XCTAssertNil(Ordering.menuBarTask([soon], scope: .pinnedOnly))
+    }
 }

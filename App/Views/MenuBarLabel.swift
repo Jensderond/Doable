@@ -7,6 +7,7 @@ struct MenuBarLabel: View {
     @Query(filter: #Predicate<TodoItem> { $0.isDone == false }) private var items: [TodoItem]
     @AppStorage("dueSoonWindow") private var windowRaw = DueSoonWindow.todayOnly.rawValue
     @AppStorage("showUrgentInMenuBar") private var showUrgentInMenuBar = false
+    @AppStorage("menuBarScope") private var scopeRaw = MenuBarScope.topTask.rawValue
 
     /// Recomputed once a minute so the icon reflects items crossing into due-soon/overdue as
     /// time passes, even when no item data changes. A plain timer is used instead of
@@ -16,11 +17,12 @@ struct MenuBarLabel: View {
     private let ticker = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var window: DueSoonWindow { DueSoonWindow(rawValue: windowRaw) ?? .todayOnly }
+    private var scope: MenuBarScope { MenuBarScope(rawValue: scopeRaw) ?? .topTask }
 
     var body: some View {
         let state = MenuBarStateCalculator.state(items: items, now: now, window: window, calendar: .current)
         Group {
-            if showUrgentInMenuBar, let urgent = Ordering.mostUrgent(items) {
+            if showUrgentInMenuBar, let urgent = Ordering.menuBarTask(items, scope: scope) {
                 urgentContent(for: urgent)
             } else {
                 content(for: state)
@@ -48,11 +50,13 @@ struct MenuBarLabel: View {
         let title = MenuBarTitle.format(item.title)
         switch Classifier.itemState(dueDate: item.dueDate, now: now, window: window, calendar: .current) {
         case .normal:
-            // Template so it adapts to the menu bar's light/dark appearance. `.titleAndIcon`
-            // is required: a bare `Label` in a `MenuBarExtra` collapses to icon-only, which
-            // would hide the task title entirely.
-            Label(title, systemImage: "checklist")
-                .labelStyle(.titleAndIcon)
+            // Plain `Text` + `Image` (title on the left, icon on the right) rendered as a
+            // template so it adapts to the menu bar's light/dark appearance. A bare `Label`
+            // can't be used here: in a `MenuBarExtra` it collapses to icon-only, hiding the title.
+            HStack(spacing: 4) {
+                Text(title)
+                Image(systemName: "checklist")
+            }
         case .dueSoon:
             titledLabel(title: title, tint: .orange)
         case .overdue:
@@ -64,8 +68,8 @@ struct MenuBarLabel: View {
     @ViewBuilder
     private func titledLabel(title: String, tint: Color) -> some View {
         let label = HStack(spacing: 4) {
-            Image(systemName: "checklist")
             Text(title)
+            Image(systemName: "checklist")
         }
         .font(.system(size: 13, weight: .semibold))
         .foregroundStyle(tint)
