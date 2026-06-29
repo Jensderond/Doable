@@ -34,6 +34,15 @@ struct MenuContentView: View {
         draggingItem == nil ? sortedItems : order
     }
 
+    /// Whether the dragged item would become bookmarked if dropped now (it sits above the
+    /// separator). Falls back to its current pin state when no boundary is shown.
+    private var draggedWouldBePinned: Bool {
+        guard let d = draggingItem else { return false }
+        guard let s = separatorIndex,
+              let idx = displayItems.firstIndex(where: { $0.id == d.id }) else { return d.isPinned }
+        return idx < s
+    }
+
     /// Insertion index in `displayItems` for the pinned↔normal separator, or `nil` when none.
     private var separatorIndex: Int? {
         let flags = displayItems.map(\.isPinned)
@@ -173,7 +182,7 @@ struct MenuContentView: View {
         HStack(spacing: 8) {
             Image(systemName: "circle").foregroundStyle(.secondary)
             Text(item.title)
-                .fontWeight(item.isPinned ? .bold : .regular)
+                .fontWeight(draggedWouldBePinned ? .bold : .regular)
                 .lineLimit(1)
             Spacer(minLength: 8)
         }
