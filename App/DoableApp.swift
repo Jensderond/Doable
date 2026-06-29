@@ -4,7 +4,7 @@ import SwiftData
 @main
 struct DoableApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var store = TodoStore()
+    @State private var store = TodoStore.shared
 
     var body: some Scene {
         MenuBarExtra {
