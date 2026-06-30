@@ -10,6 +10,11 @@ struct ArchiveView: View {
            sort: \TodoItem.completedAt, order: .reverse) private var items: [TodoItem]
     @State private var filter: CompletedFilter = .thisWeek
 
+    /// Measured height of the completed list's content, used to size the scroll area to its content
+    /// up to a cap (a bare `maxHeight` ScrollView collapses inside the content-sizing popover).
+    @State private var listContentHeight: CGFloat = 0
+    private let maxListHeight: CGFloat = 320
+
     private var filteredItems: [TodoItem] {
         let range = filter.dateRange(now: Date(), calendar: .current)
         return items.filter { item in
@@ -74,10 +79,22 @@ struct ArchiveView: View {
                             .padding(.vertical, 6)
                         }
                     }
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: ArchiveListHeightKey.self, value: proxy.size.height)
+                    })
                 }
-                .frame(maxHeight: 320)
+                .frame(height: min(listContentHeight, maxListHeight))
+                .onPreferenceChange(ArchiveListHeightKey.self) { listContentHeight = $0 }
             }
         }
         .frame(width: 320)
+    }
+}
+
+/// Reports the intrinsic height of the completed list's content so the scroll area sizes to it.
+private struct ArchiveListHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
