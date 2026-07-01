@@ -7,6 +7,7 @@ struct GeneralSettingsView: View {
     @AppStorage("staleThresholdWorkdays") private var staleThreshold = 3
     @AppStorage("showUrgentInMenuBar") private var showUrgentInMenuBar = false
     @AppStorage("menuBarScope") private var scopeRaw = MenuBarScope.pinnedOnly.rawValue
+    @AppStorage("typeToSetDeadline") private var typeToSetDeadline = false
     @State private var launchAtLogin = LoginItemManager.isEnabled
 
     var body: some View {
@@ -34,6 +35,8 @@ struct GeneralSettingsView: View {
 
             Stepper("Stale after \(staleThreshold) workday\(staleThreshold == 1 ? "" : "s")",
                     value: $staleThreshold, in: 1...30)
+
+            Toggle("Type to set deadlines", isOn: $typeToSetDeadline)
         }
         .formStyle(.grouped)
     }

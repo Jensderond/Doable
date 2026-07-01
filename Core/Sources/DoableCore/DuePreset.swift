@@ -27,9 +27,14 @@ public enum DuePreset: String, CaseIterable, Sendable {
         }
     }
 
+    /// `day` at the canonical due time (17:00) in `calendar`'s time zone. All
+    /// deadlines in the app store this time-of-day, even though the UI is day-only.
+    public static func dueTime(on day: Date, calendar: Calendar) -> Date {
+        calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day)!
+    }
+
     /// The due date this preset resolves to, relative to `now`.
     public func date(from now: Date, calendar: Calendar) -> Date {
-        let dueHour = 17
         let monday = 2     // Gregorian weekday number
         let day: Date
         switch self {
@@ -43,6 +48,6 @@ public enum DuePreset: String, CaseIterable, Sendable {
             if add == 0 { add = 7 }
             day = calendar.date(byAdding: .day, value: add, to: now)!
         }
-        return calendar.date(bySettingHour: dueHour, minute: 0, second: 0, of: day)!
+        return Self.dueTime(on: day, calendar: calendar)
     }
 }

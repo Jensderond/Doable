@@ -41,6 +41,12 @@ final class DuePresetTests: XCTestCase {
         XCTAssertEqual(DuePreset.nextWeek.displayName, "Next week")
     }
 
+    func test_dueTime_sets_1700_on_given_day() {
+        let morning = date(2026, 7, 1, 9, 30, calendar: cal)
+        XCTAssertEqual(DuePreset.dueTime(on: morning, calendar: cal),
+                       date(2026, 7, 1, 17, 0, calendar: cal))
+    }
+
     // Availability: `tomorrow` is offered only when tomorrow is a workday.
 
     func test_available_on_monday_through_thursday_includes_tomorrow() {
