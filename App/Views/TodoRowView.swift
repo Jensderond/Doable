@@ -64,22 +64,6 @@ struct TodoRowView: View {
                         .font(.caption)
                         .foregroundStyle(dueColor ?? .secondary)
                 }
-                if isStale {
-                    HStack(spacing: 6) {
-                        Text("Stale")
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 1)
-                            .background(Color.secondary.opacity(0.2), in: Capsule())
-                            .foregroundStyle(.secondary)
-                        Button("Postpone") {
-                            store.postponeStale(item, now: Date(), thresholdWorkdays: staleThreshold, calendar: .current, in: context)
-                        }
-                        .buttonStyle(.plain)
-                        .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
-                    }
-                }
             }
 
             Spacer(minLength: 8)
@@ -91,6 +75,14 @@ struct TodoRowView: View {
                     .foregroundStyle(Color.accentColor)
             } else {
                 HStack(spacing: 10) {
+                    // Stale items get a quiet, always-visible glyph instead of a badge row,
+                    // so stale rows stay the same height as normal rows.
+                    if isStale {
+                        Image(systemName: "hourglass")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .help("Stale — untouched for \(staleThreshold) workday\(staleThreshold == 1 ? "" : "s")")
+                    }
                     // The bookmark always occupies its slot so the title never rewraps
                     // (and the click target never shifts) when it fades in on hover.
                     // Pinned items keep it visible; unpinned items reveal it on hover.
@@ -105,6 +97,14 @@ struct TodoRowView: View {
                     // The "…" menu folds in the deadline, pin, and delete actions that used to
                     // be split between the inline clock and the context menu.
                     Menu {
+                        if isStale {
+                            Button {
+                                store.postponeStale(item, now: Date(), thresholdWorkdays: staleThreshold, calendar: .current, in: context)
+                            } label: {
+                                Label("Postpone", systemImage: "hourglass")
+                            }
+                            Divider()
+                        }
                         Button { editingItemID = item.id } label: {
                             Label(item.dueDate == nil ? "Set deadline" : "Edit deadline",
                                   systemImage: "clock")
@@ -136,6 +136,14 @@ struct TodoRowView: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .contextMenu {
+            if isStale {
+                Button {
+                    store.postponeStale(item, now: Date(), thresholdWorkdays: staleThreshold, calendar: .current, in: context)
+                } label: {
+                    Label("Postpone", systemImage: "hourglass")
+                }
+                Divider()
+            }
             Button {
                 store.togglePin(item, in: context)
             } label: {
