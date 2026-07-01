@@ -60,7 +60,7 @@ struct TodoRowView: View {
                     .strikethrough(isPendingDone)
                     .foregroundStyle(titleColor)
                 if let due = item.dueDate {
-                    Text(due, format: .dateTime.weekday().month().day().hour().minute())
+                    Text(due, format: .dateTime.weekday().month().day())
                         .font(.caption)
                         .foregroundStyle(dueColor ?? .secondary)
                 }
