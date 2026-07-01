@@ -91,19 +91,19 @@ struct TodoRowView: View {
                     .foregroundStyle(Color.accentColor)
             } else {
                 HStack(spacing: 10) {
-                    // Pinned items always show the (filled) pin so the state is visible; unpinned
-                    // items reveal the pin button on hover.
-                    if item.isPinned || hovering {
-                        Button { store.togglePin(item, in: context) } label: {
-                            Image(systemName: item.isPinned ? "bookmark.fill" : "bookmark")
-                                .foregroundStyle(item.isPinned ? Color.accentColor : Color.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(item.isPinned ? "Unpin" : "Pin to top")
+                    // The bookmark always occupies its slot so the title never rewraps
+                    // (and the click target never shifts) when it fades in on hover.
+                    // Pinned items keep it visible; unpinned items reveal it on hover.
+                    Button { store.togglePin(item, in: context) } label: {
+                        Image(systemName: item.isPinned ? "bookmark.fill" : "bookmark")
+                            .foregroundStyle(item.isPinned ? Color.accentColor : Color.secondary)
                     }
-                    // The "…" menu is always present, anchoring the right edge so the bookmark's
-                    // position never shifts on hover. It folds in the deadline, pin, and delete
-                    // actions that used to be split between the inline clock and the context menu.
+                    .buttonStyle(.plain)
+                    .help(item.isPinned ? "Unpin" : "Pin to top")
+                    .opacity(item.isPinned || hovering ? 1 : 0)
+                    .allowsHitTesting(item.isPinned || hovering)
+                    // The "…" menu folds in the deadline, pin, and delete actions that used to
+                    // be split between the inline clock and the context menu.
                     Menu {
                         Button { editingItemID = item.id } label: {
                             Label(item.dueDate == nil ? "Set deadline" : "Edit deadline",
